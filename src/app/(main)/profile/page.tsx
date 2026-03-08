@@ -40,6 +40,7 @@ export default async function ProfilePage() {
     .from("reviews")
     .select("*, author:profiles!author_id(id, display_name, avatar_url)")
     .eq("subject_id", user.id)
+    .eq("revealed", true)
     .order("created_at", { ascending: false })
     .limit(5);
 
@@ -80,18 +81,31 @@ export default async function ProfilePage() {
     .limit(10);
   const references = (rawReferences ?? []) as unknown as ReferenceWithAuthor[];
 
-  // Review stats for trust breakdown
-  const { data: reviewStats } = await supabase
+  // Review stats for trust breakdown (revealed only for display)
+  const { data: rawReviewStats } = await supabase
     .from("reviews")
-    .select("rating")
-    .eq("subject_id", user.id);
-  const ratings = (reviewStats ?? []).map((r) => r.rating);
+    .select("*")
+    .eq("subject_id", user.id)
+    .eq("revealed", true);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const reviewStats = (rawReviewStats ?? []) as any[];
+  const ratings = reviewStats.map((r: { rating: number }) => r.rating);
   const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
   let ratingStddev: number | null = null;
   if (ratings.length >= 3 && avgRating !== null) {
     const variance = ratings.reduce((sum, r) => sum + Math.pow(r - avgRating, 2), 0) / ratings.length;
     ratingStddev = Math.sqrt(variance);
   }
+
+  // Compute dimension averages
+  const dimReviews = (reviewStats ?? []).filter((r) => r.dim_reliability != null);
+  const dimensionAverages = dimReviews.length > 0 ? {
+    reliability: dimReviews.reduce((s, r) => s + (r.dim_reliability ?? 0), 0) / dimReviews.length,
+    communication: dimReviews.reduce((s, r) => s + (r.dim_communication ?? 0), 0) / dimReviews.length,
+    accuracy: dimReviews.reduce((s, r) => s + (r.dim_accuracy ?? 0), 0) / dimReviews.length,
+    generosity: dimReviews.reduce((s, r) => s + (r.dim_generosity ?? 0), 0) / dimReviews.length,
+    community: dimReviews.reduce((s, r) => s + (r.dim_community ?? 0), 0) / dimReviews.length,
+  } : null;
 
   // Trust badge computation
   const { count: giftCount } = await supabase
@@ -285,6 +299,7 @@ export default async function ProfilePage() {
         ratingStddev={ratingStddev}
         responseRate={profile.response_rate}
         lastActive={profile.last_active}
+        dimensionAverages={dimensionAverages}
       />
 
       {(profile.skills?.length ?? 0) > 0 && (

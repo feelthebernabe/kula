@@ -3,7 +3,18 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { UserCheck, UserPlus } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { UserCheck, UserPlus, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 interface VouchButtonProps {
@@ -14,6 +25,7 @@ interface VouchButtonProps {
   vouchCount: number;
   hasVouched: boolean;
   subjectVerificationTier: string;
+  activeVouchCount?: number;
 }
 
 export function VouchButton({
@@ -24,9 +36,11 @@ export function VouchButton({
   vouchCount,
   hasVouched: initialHasVouched,
   subjectVerificationTier,
+  activeVouchCount = 0,
 }: VouchButtonProps) {
   const [vouched, setVouched] = useState(initialHasVouched);
   const [count, setCount] = useState(vouchCount);
+  const [myVouchCount, setMyVouchCount] = useState(activeVouchCount);
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
@@ -49,58 +63,120 @@ export function VouchButton({
     return null;
   }
 
-  async function toggleVouch() {
+  async function doVouch() {
     if (loading) return;
     setLoading(true);
 
-    if (vouched) {
-      const { error } = await supabase
-        .from("community_vouches")
-        .delete()
-        .eq("voucher_id", currentUserId!)
-        .eq("subject_id", subjectId);
+    const { error } = await supabase.from("community_vouches").insert({
+      voucher_id: currentUserId!,
+      subject_id: subjectId,
+    });
 
-      if (error) {
-        toast.error("Failed to remove vouch");
+    if (error) {
+      if (error.message.includes("5 active vouches")) {
+        toast.error("You can only have 5 active vouches at a time");
       } else {
-        setVouched(false);
-        setCount((c) => c - 1);
+        toast.error("Failed to vouch");
       }
     } else {
-      const { error } = await supabase.from("community_vouches").insert({
-        voucher_id: currentUserId!,
-        subject_id: subjectId,
-      });
-
-      if (error) {
-        toast.error("Failed to vouch");
-      } else {
-        setVouched(true);
-        setCount((c) => c + 1);
-        toast.success(`You vouched for ${subjectName}!`);
-      }
+      setVouched(true);
+      setCount((c) => c + 1);
+      setMyVouchCount((c) => c + 1);
+      toast.success(`You vouched for ${subjectName}!`);
     }
 
     setLoading(false);
   }
 
-  return (
-    <Button
-      variant={vouched ? "secondary" : "outline"}
-      size="sm"
-      onClick={toggleVouch}
-      disabled={loading}
-      className="gap-1.5"
-    >
-      {vouched ? (
+  async function removeVouch() {
+    if (loading) return;
+    setLoading(true);
+
+    const { error } = await supabase
+      .from("community_vouches")
+      .delete()
+      .eq("voucher_id", currentUserId!)
+      .eq("subject_id", subjectId);
+
+    if (error) {
+      toast.error("Failed to remove vouch");
+    } else {
+      setVouched(false);
+      setCount((c) => c - 1);
+      setMyVouchCount((c) => Math.max(0, c - 1));
+    }
+
+    setLoading(false);
+  }
+
+  if (vouched) {
+    return (
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={removeVouch}
+        disabled={loading}
+        className="gap-1.5"
+      >
         <UserCheck className="h-3.5 w-3.5" />
-      ) : (
-        <UserPlus className="h-3.5 w-3.5" />
-      )}
-      {vouched ? "Vouched" : "Vouch"}
-      {count > 0 && (
-        <span className="text-xs text-muted-foreground">({count})</span>
-      )}
-    </Button>
+        Vouched
+        {count > 0 && (
+          <span className="text-xs text-muted-foreground">({count})</span>
+        )}
+      </Button>
+    );
+  }
+
+  // At vouch limit
+  if (myVouchCount >= 5) {
+    return (
+      <Button variant="outline" size="sm" disabled className="gap-1.5">
+        <ShieldAlert className="h-3.5 w-3.5" />
+        5/5 vouches used
+      </Button>
+    );
+  }
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={loading}
+          className="gap-1.5"
+        >
+          <UserPlus className="h-3.5 w-3.5" />
+          Vouch
+          {count > 0 && (
+            <span className="text-xs text-muted-foreground">({count})</span>
+          )}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Vouch for {subjectName}?</AlertDialogTitle>
+          <AlertDialogDescription className="space-y-2">
+            <p>
+              By vouching, you are staking your reputation on {subjectName}.
+            </p>
+            <p className="text-sm">
+              If they maintain good standing (trust 60+), you will receive a
+              small trust boost (+0.5 pts). If they violate community standards
+              (trust drops below 40), your score may decrease (-1 pt).
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {myVouchCount}/5 active vouches used
+            </p>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={doVouch} disabled={loading}>
+            {loading ? "Vouching..." : "Vouch"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

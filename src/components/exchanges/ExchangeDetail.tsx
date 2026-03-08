@@ -15,7 +15,8 @@ import { TrustScoreBadge } from "@/components/profiles/TrustScoreBadge";
 import { EXCHANGE_MODES } from "@/lib/constants/exchange-modes";
 import { ImageUploader } from "@/components/shared/ImageUploader";
 import { DisputeDialog } from "@/components/exchanges/DisputeDialog";
-import { AlertTriangle, Clock } from "lucide-react";
+import { DimensionRatingInput, getDimensionPrompts } from "@/components/exchanges/DimensionRatingInput";
+import { AlertTriangle, Clock, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import type { ExchangeAgreement, Profile, Post, Database } from "@/types/database";
 
@@ -47,8 +48,19 @@ export function ExchangeDetail({
 }: ExchangeDetailProps) {
   const [loading, setLoading] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
-  const [rating, setRating] = useState(0);
   const [reviewBody, setReviewBody] = useState("");
+  const [dimReliability, setDimReliability] = useState(0);
+  const [dimCommunication, setDimCommunication] = useState(0);
+  const [dimAccuracy, setDimAccuracy] = useState(0);
+  const [dimGenerosity, setDimGenerosity] = useState(0);
+  const [dimCommunity, setDimCommunity] = useState(0);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+
+  // Computed overall rating from dimensions
+  const filledDimensions = [dimReliability, dimCommunication, dimAccuracy, dimGenerosity, dimCommunity].filter(d => d > 0);
+  const rating = filledDimensions.length === 5
+    ? Math.round(filledDimensions.reduce((a, b) => a + b, 0) / 5)
+    : 0;
   const router = useRouter();
   const supabase = createClient();
 
@@ -118,8 +130,8 @@ export function ExchangeDetail({
   }
 
   async function submitReview() {
-    if (rating === 0) {
-      toast.error("Please select a rating");
+    if (filledDimensions.length < 5) {
+      toast.error("Please rate all 5 dimensions");
       return;
     }
     if (reviewBody.length < 20) {
@@ -137,13 +149,18 @@ export function ExchangeDetail({
       subject_id: subjectId,
       rating,
       body: reviewBody,
+      dim_reliability: dimReliability,
+      dim_communication: dimCommunication,
+      dim_accuracy: dimAccuracy,
+      dim_generosity: dimGenerosity,
+      dim_community: dimCommunity,
     });
 
     if (error) {
       toast.error("Failed to submit review: " + error.message);
     } else {
-      toast.success("Review submitted!");
       setShowReviewForm(false);
+      setReviewSubmitted(true);
       router.refresh();
     }
     setLoading(false);
@@ -178,37 +195,31 @@ export function ExchangeDetail({
         </div>
       )}
 
-      {/* Review form (shown inline at top when activated) */}
-      {exchange.status === "completed" && !hasReviewed && showReviewForm && (
+      {/* Review form with 5 dimensions (shown inline at top when activated) */}
+      {exchange.status === "completed" && !hasReviewed && !reviewSubmitted && showReviewForm && (
         <Card className="border-amber-200 dark:border-amber-900">
           <CardContent className="pt-6">
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Rating</Label>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setRating(star)}
-                      className={`text-2xl transition-colors ${
-                        star <= rating
-                          ? "text-yellow-500"
-                          : "text-muted-foreground/30"
-                      }`}
-                    >
-                      ★
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {(() => {
+                const prompts = getDimensionPrompts(exchange.exchange_mode);
+                return (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Rate your experience</Label>
+                    <DimensionRatingInput label="Reliability" prompt={prompts.reliability} value={dimReliability} onChange={setDimReliability} />
+                    <DimensionRatingInput label="Communication" prompt={prompts.communication} value={dimCommunication} onChange={setDimCommunication} />
+                    <DimensionRatingInput label="Accuracy" prompt={prompts.accuracy} value={dimAccuracy} onChange={setDimAccuracy} />
+                    <DimensionRatingInput label="Generosity" prompt={prompts.generosity} value={dimGenerosity} onChange={setDimGenerosity} />
+                    <DimensionRatingInput label="Community Spirit" prompt={prompts.community} value={dimCommunity} onChange={setDimCommunity} />
+                  </div>
+                );
+              })()}
               {userTotalExchanges < 5 && (
                 <p className="text-xs text-blue-600 dark:text-blue-400">
                   New members (fewer than 5 exchanges) can rate up to 4 stars.
                 </p>
               )}
               <div className="space-y-2">
-                <Label>Review</Label>
+                <Label>Written feedback</Label>
                 <Textarea
                   placeholder={`What was it like sharing with ${otherParty.display_name}?`}
                   value={reviewBody}
@@ -218,6 +229,12 @@ export function ExchangeDetail({
                 />
                 <p className="text-xs text-muted-foreground">
                   {reviewBody.length}/20 minimum characters
+                </p>
+              </div>
+              <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-2 dark:border-blue-900 dark:bg-blue-950/30">
+                <EyeOff className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  Your review is blind. Neither party sees the other&apos;s review until both submit, or after 7 days.
                 </p>
               </div>
               <div className="flex gap-2">
@@ -231,7 +248,7 @@ export function ExchangeDetail({
                 <Button
                   onClick={submitReview}
                   disabled={
-                    loading || rating === 0 || reviewBody.length < 20
+                    loading || filledDimensions.length < 5 || reviewBody.length < 20
                   }
                 >
                   {loading ? "Submitting..." : "Submit Review"}
@@ -240,6 +257,23 @@ export function ExchangeDetail({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Blind review confirmation after submission */}
+      {exchange.status === "completed" && !hasReviewed && reviewSubmitted && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
+          <div className="flex items-center gap-3">
+            <EyeOff className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+            <div>
+              <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                Review submitted!
+              </p>
+              <p className="text-xs text-blue-700 dark:text-blue-400">
+                It will be visible once {otherParty.display_name} also submits their review, or after 7 days.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       <Card>
@@ -468,7 +502,7 @@ export function ExchangeDetail({
         </Card>
       )}
 
-      {exchange.status === "completed" && hasReviewed && (
+      {exchange.status === "completed" && hasReviewed && !reviewSubmitted && (
         <p className="text-center text-sm text-muted-foreground">
           You&apos;ve reviewed this exchange. Thank you!
         </p>

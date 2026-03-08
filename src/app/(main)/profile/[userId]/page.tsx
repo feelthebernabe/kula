@@ -46,10 +46,12 @@ export default async function UserProfilePage({
     data: { user: currentUser },
   } = await supabase.auth.getUser();
 
+  // Only show revealed (blind protocol) reviews on profile
   const { data: reviews } = await supabase
     .from("reviews")
     .select("*, author:profiles!author_id(id, display_name, avatar_url)")
     .eq("subject_id", userId)
+    .eq("revealed", true)
     .order("created_at", { ascending: false })
     .limit(10);
 
@@ -108,18 +110,31 @@ export default async function UserProfilePage({
     .limit(10);
   const references = (rawReferences ?? []) as unknown as ReferenceWithAuthor[];
 
-  // Fetch review stats for trust breakdown (avg rating, stddev)
-  const { data: reviewStats } = await supabase
+  // Fetch review stats for trust breakdown (avg rating, stddev) - revealed only for display
+  const { data: rawReviewStats } = await supabase
     .from("reviews")
-    .select("rating")
-    .eq("subject_id", userId);
-  const ratings = (reviewStats ?? []).map((r) => r.rating);
+    .select("*")
+    .eq("subject_id", userId)
+    .eq("revealed", true);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const reviewStats = (rawReviewStats ?? []) as any[];
+  const ratings = reviewStats.map((r: { rating: number }) => r.rating);
   const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
   let ratingStddev: number | null = null;
   if (ratings.length >= 3 && avgRating !== null) {
     const variance = ratings.reduce((sum, r) => sum + Math.pow(r - avgRating, 2), 0) / ratings.length;
     ratingStddev = Math.sqrt(variance);
   }
+
+  // Compute dimension averages for reviews that have them
+  const dimReviews = (reviewStats ?? []).filter((r) => r.dim_reliability != null);
+  const dimensionAverages = dimReviews.length > 0 ? {
+    reliability: dimReviews.reduce((s, r) => s + (r.dim_reliability ?? 0), 0) / dimReviews.length,
+    communication: dimReviews.reduce((s, r) => s + (r.dim_communication ?? 0), 0) / dimReviews.length,
+    accuracy: dimReviews.reduce((s, r) => s + (r.dim_accuracy ?? 0), 0) / dimReviews.length,
+    generosity: dimReviews.reduce((s, r) => s + (r.dim_generosity ?? 0), 0) / dimReviews.length,
+    community: dimReviews.reduce((s, r) => s + (r.dim_community ?? 0), 0) / dimReviews.length,
+  } : null;
 
   // Fetch skill endorsements for this user
   const { data: rawEndorsements } = await supabase
@@ -171,15 +186,18 @@ export default async function UserProfilePage({
   const vouchCount = vouches.length;
   const hasVouched = currentUser ? vouches.some((v) => v.voucher_id === currentUser.id) : false;
 
-  // Current user trust score (for vouch eligibility)
+  // Current user trust score + active vouch count (for vouch eligibility)
   let currentUserTrustScore = 0;
+  let currentUserActiveVouches = 0;
   if (currentUser) {
     const { data: currentProfile } = await supabase
       .from("profiles")
-      .select("trust_score")
+      .select("*")
       .eq("id", currentUser.id)
       .single();
     currentUserTrustScore = currentProfile?.trust_score ?? 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    currentUserActiveVouches = (currentProfile as any)?.active_vouch_count ?? 0;
   }
 
   // Trust badge computation
@@ -325,6 +343,7 @@ export default async function UserProfilePage({
                   vouchCount={vouchCount}
                   hasVouched={hasVouched}
                   subjectVerificationTier={profile.verification_tier ?? "basic"}
+                  activeVouchCount={currentUserActiveVouches}
                 />
                 {currentUser && (
                   <ReportButton
@@ -384,6 +403,7 @@ export default async function UserProfilePage({
         ratingStddev={ratingStddev}
         responseRate={profile.response_rate}
         lastActive={profile.last_active}
+        dimensionAverages={dimensionAverages}
       />
 
       {(profile.skills?.length ?? 0) > 0 && (
@@ -469,9 +489,10 @@ export default async function UserProfilePage({
         <CardContent>
           {reviews && reviews.length > 0 ? (
             <div className="space-y-4">
-              {reviews.map((review) => (
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {reviews.map((review: any) => (
                 <div key={review.id} className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">
                       {review.author?.display_name}
                     </span>
@@ -479,12 +500,26 @@ export default async function UserProfilePage({
                       {"★".repeat(review.rating)}
                       {"☆".repeat(5 - review.rating)}
                     </span>
+                    {review.exchange_type && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
+                        {String(review.exchange_type).replace("_", " ")}
+                      </Badge>
+                    )}
                     <span className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(review.created_at!), {
+                      {formatDistanceToNow(new Date(review.created_at), {
                         addSuffix: true,
                       })}
                     </span>
                   </div>
+                  {review.dim_reliability != null && (
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                      <span>Reliability {review.dim_reliability}/5</span>
+                      <span>Communication {review.dim_communication}/5</span>
+                      <span>Accuracy {review.dim_accuracy}/5</span>
+                      <span>Generosity {review.dim_generosity}/5</span>
+                      <span>Community {review.dim_community}/5</span>
+                    </div>
+                  )}
                   <p className="text-sm text-muted-foreground">{review.body}</p>
                 </div>
               ))}
