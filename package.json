@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npx supabase db push --project-ref $SUPABASE_PROJECT_REF && next build",
     "start": "next start",
     "lint": "eslint"
   },

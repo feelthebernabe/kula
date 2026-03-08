@@ -363,28 +363,31 @@ export default async function UserProfilePage({
           )}
 
           <div className="mt-4 flex flex-wrap gap-6 text-sm">
-            <div>
+            <div title="Completed exchanges">
               <span className="font-semibold text-foreground">
                 {profile.total_exchanges}
               </span>{" "}
-              <span className="text-muted-foreground">exchanges</span>
+              <span className="text-muted-foreground cursor-help underline decoration-dotted">exchanges</span>
             </div>
-            <div>
+            <div title="Times you were the provider">
               <span className="font-semibold text-foreground">
                 {profile.total_given}
               </span>{" "}
-              <span className="text-muted-foreground">given</span>
+              <span className="text-muted-foreground cursor-help underline decoration-dotted">given</span>
             </div>
-            <div>
+            <div title="Times you were the receiver">
               <span className="font-semibold text-foreground">
                 {profile.total_received}
               </span>{" "}
-              <span className="text-muted-foreground">received</span>
+              <span className="text-muted-foreground cursor-help underline decoration-dotted">received</span>
             </div>
-            <div className="flex items-center gap-1 text-muted-foreground">
+            <div
+              className="flex items-center gap-1 text-muted-foreground"
+              title="Time Dollar balance — 1 TD = 1 hour"
+            >
               <Clock className="h-3.5 w-3.5" />
               <span className="font-semibold text-foreground">{tdBalance.toFixed(1)}</span>{" "}
-              <span>TD</span>
+              <span className="cursor-help underline decoration-dotted">TD</span>
             </div>
           </div>
         </CardContent>
