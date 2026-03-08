@@ -2,6 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getTrustTier } from "./TrustScoreBadge";
 import { cn } from "@/lib/utils";
 
+interface DimensionAverages {
+  reliability: number;
+  communication: number;
+  accuracy: number;
+  generosity: number;
+  community: number;
+}
+
 interface TrustBreakdownProps {
   score: number | null | undefined;
   totalExchanges: number | null | undefined;
@@ -15,6 +23,7 @@ interface TrustBreakdownProps {
   ratingStddev: number | null | undefined;
   responseRate: number | null | undefined;
   lastActive: string | null | undefined;
+  dimensionAverages?: DimensionAverages | null;
 }
 
 function ProgressBar({
@@ -60,6 +69,7 @@ export function TrustBreakdown({
   ratingStddev,
   responseRate,
   lastActive,
+  dimensionAverages,
 }: TrustBreakdownProps) {
   const safeScore = score ?? 30;
   const tier = getTrustTier(safeScore);
@@ -72,13 +82,13 @@ export function TrustBreakdown({
   const verifyCount = verificationMethods?.length ?? 0;
   const vTier = verificationTier ?? "basic";
 
-  // 1. Reviews (max 25)
-  let reviewPoints: number;
-  if (reviewCount >= 3) {
-    reviewPoints = Math.min(25, ((avgRating ?? 3) / 5) * 25);
-  } else {
-    reviewPoints = 15; // neutral baseline
-  }
+  // 1. Reviews (max 25) — Bayesian with platform prior of 3.0
+  const platformAvg = 3.0;
+  const priorWeight = 6;
+  const bayesianAvg = reviewCount > 0
+    ? ((avgRating ?? 3) * reviewCount + platformAvg * priorWeight) / (reviewCount + priorWeight)
+    : platformAvg;
+  const reviewPoints = Math.min(25, Math.max(0, (bayesianAvg / 5) * 25));
 
   // 2. Exchange volume (max 15, logarithmic)
   let volumePoints: number;
@@ -221,6 +231,30 @@ export function TrustBreakdown({
             color="bg-emerald-500"
           />
         </div>
+
+        {/* Dimension averages (from structured reviews) */}
+        {dimensionAverages && (
+          <>
+            <div className="border-t pt-3 mt-1">
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                Review Dimensions
+              </p>
+              <div className="space-y-2">
+                <ProgressBar value={dimensionAverages.reliability} max={5} label="Reliability" color="bg-orange-500" />
+                <ProgressBar value={dimensionAverages.communication} max={5} label="Communication" color="bg-teal-500" />
+                <ProgressBar value={dimensionAverages.accuracy} max={5} label="Accuracy" color="bg-sky-500" />
+                <ProgressBar value={dimensionAverages.generosity} max={5} label="Generosity" color="bg-rose-500" />
+                <ProgressBar value={dimensionAverages.community} max={5} label="Community Spirit" color="bg-lime-500" />
+              </div>
+            </div>
+          </>
+        )}
+
+        {reviewCount < 3 && (
+          <p className="text-xs text-muted-foreground border-t pt-2 mt-1">
+            New member &mdash; trust score stabilizes after 3+ reviews
+          </p>
+        )}
       </CardContent>
     </Card>
   );
