@@ -1,0 +1,17 @@
+{
+  "name": "Kula — A Sharing Network",
+  "short_name": "Kula",
+  "description": "Gift, lend, barter, and exchange time with your neighbors",
+  "start_url": "/feed",
+  "display": "standalone",
+  "background_color": "#FAF8F5",
+  "theme_color": "#2D6A4F",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

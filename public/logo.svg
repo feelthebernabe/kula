@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Outer ring -->
+  <circle cx="60" cy="60" r="52" stroke="#2D6A4F" stroke-width="6" opacity="0.2"/>
+  <!-- Main ring with gap (represents open exchange) -->
+  <path d="M60 8 A52 52 0 1 1 28.6 100.4" stroke="#2D6A4F" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- Flow arrow (represents giving/receiving) -->
+  <path d="M28.6 100.4 L22 88 L38 94" stroke="#2D6A4F" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Inner circle (represents community) -->
+  <circle cx="60" cy="60" r="20" fill="#2D6A4F" opacity="0.12"/>
+  <!-- Connection dots (represent people) -->
+  <circle cx="60" cy="38" r="5" fill="#2D6A4F"/>
+  <circle cx="79" cy="70" r="5" fill="#2D6A4F"/>
+  <circle cx="41" cy="70" r="5" fill="#2D6A4F"/>
+  <!-- Connection lines between dots -->
+  <line x1="60" y1="43" x2="76" y2="66" stroke="#2D6A4F" stroke-width="2" opacity="0.4"/>
+  <line x1="60" y1="43" x2="44" y2="66" stroke="#2D6A4F" stroke-width="2" opacity="0.4"/>
+  <line x1="44" y1="70" x2="76" y2="70" stroke="#2D6A4F" stroke-width="2" opacity="0.4"/>
+</svg>
