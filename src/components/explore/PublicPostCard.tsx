@@ -1,53 +1,33 @@
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { Gift, Search } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserRound, Lock, Gift, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { EXCHANGE_MODES } from "@/lib/constants/exchange-modes";
 import { CATEGORIES } from "@/lib/constants/categories";
-import { CONDITIONS } from "@/lib/constants/conditions";
-import { TrustScoreBadge } from "@/components/profiles/TrustScoreBadge";
-import { QuickAskButton } from "./QuickAskButton";
-import { PostCardBookmark } from "./PostCardBookmark";
 import type { PostWithAuthor } from "@/types/database";
 
-export function PostCard({ post }: { post: PostWithAuthor }) {
-  if (post.removed_by_mod) return null;
-
+export function PublicPostCard({ post }: { post: PostWithAuthor }) {
   const category = CATEGORIES.find((c) => c.value === post.category);
-  const initials = post.author.display_name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "?";
 
   const isOffer = post.type === "offer";
 
   return (
-    <Link href={`/posts/${post.id}`}>
-      <Card className={`overflow-hidden transition-shadow hover:shadow-md ${post.status !== "active" ? "opacity-60" : ""}`}>
-        {/* Type accent strip */}
+    <Link href="/signup">
+      <Card className="overflow-hidden transition-shadow hover:shadow-md cursor-pointer">
         <div className={`h-1 w-full ${isOffer ? "bg-primary" : "bg-amber-400"}`} />
-
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarImage
-                src={post.author.avatar_url || undefined}
-                alt={post.author.display_name}
-              />
-              <AvatarFallback className="bg-primary/10 text-sm text-primary">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
+            {/* Generic anonymous avatar */}
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
+              <UserRound className="h-5 w-5 text-muted-foreground" />
+            </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground truncate">
-                  {post.author.display_name}
+                <span className="text-sm font-medium text-muted-foreground">
+                  Community Member
                 </span>
-                <TrustScoreBadge score={post.author.trust_score} size="sm" />
+                <Lock className="h-3 w-3 text-muted-foreground/50" />
               </div>
               <span className="text-xs text-muted-foreground">
                 {formatDistanceToNow(new Date(post.created_at!), {
@@ -55,24 +35,14 @@ export function PostCard({ post }: { post: PostWithAuthor }) {
                 })}
               </span>
             </div>
-            <PostCardBookmark postId={post.id} />
-            {post.status !== "active" ? (
-              <Badge variant="outline" className="shrink-0 text-muted-foreground">
-                {post.status === "fulfilled" ? "Fulfilled" : "Closed"}
-              </Badge>
-            ) : (
-              <div className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                isOffer
-                  ? "bg-primary/10 text-primary"
-                  : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
-              }`}>
-                {isOffer
-                  ? <Gift className="h-3 w-3" />
-                  : <Search className="h-3 w-3" />
-                }
-                {isOffer ? "Offering" : "Looking for"}
-              </div>
-            )}
+            <div className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+              isOffer
+                ? "bg-primary/10 text-primary"
+                : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+            }`}>
+              {isOffer ? <Gift className="h-3 w-3" /> : <Search className="h-3 w-3" />}
+              {isOffer ? "Offering" : "Looking for"}
+            </div>
           </div>
         </CardHeader>
 
@@ -120,18 +90,9 @@ export function PostCard({ post }: { post: PostWithAuthor }) {
                 </Badge>
               );
             })}
-            {post.status === "active" && (
-              <QuickAskButton postId={post.id} authorId={post.author_id} />
-            )}
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             {category && <span>{category.label}</span>}
-            {post.condition && (
-              <span>
-                {CONDITIONS.find((c) => c.value === post.condition)?.label ??
-                  post.condition}
-              </span>
-            )}
             {(post.response_count ?? 0) > 0 && (
               <span>
                 {post.response_count}{" "}

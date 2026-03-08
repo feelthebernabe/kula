@@ -107,10 +107,10 @@ export default async function LandingPage() {
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              href="/login"
+              href="/browse"
               className="rounded-lg border border-border px-8 py-3.5 text-base font-semibold text-foreground transition-colors hover:bg-accent"
             >
-              Sign In
+              Browse the feed
             </Link>
           </div>
 
