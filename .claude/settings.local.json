@@ -13,7 +13,8 @@
       "Bash(npx next build:*)",
       "Bash(ls:*)",
       "Bash(vercel:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(mv /Users/slvtrs/Dev/kula/src/app/explore/page.tsx /Users/slvtrs/Dev/kula/src/app/browse/page.tsx && rmdir /Users/slvtrs/Dev/kula/src/app/explore && mv /Users/slvtrs/Dev/kula/src/app/api/explore/posts/route.ts /tmp/explore-route.ts && mkdir -p /Users/slvtrs/Dev/kula/src/app/api/browse/posts && mv /tmp/explore-route.ts /Users/slvtrs/Dev/kula/src/app/api/browse/posts/route.ts && rmdir /Users/slvtrs/Dev/kula/src/app/api/explore/posts /Users/slvtrs/Dev/kula/src/app/api/explore 2>/dev/null; echo \"done\")"
     ]
   }
 }
