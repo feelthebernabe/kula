@@ -163,7 +163,7 @@ export function FeedList({
           ))}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
@@ -171,7 +171,7 @@ export function FeedList({
       )}
 
       {loading && (
-        <div className={viewMode === "grid" ? "mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3" : "mt-4 space-y-4"}>
+        <div className={viewMode === "grid" ? "mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3" : "mt-6 space-y-6"}>
           <PostCardSkeleton />
           <PostCardSkeleton />
           {viewMode === "grid" && <PostCardSkeleton />}

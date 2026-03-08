@@ -81,14 +81,14 @@ export function PublicFeedList({
 
   return (
     <div>
-      <div className="space-y-4">
+      <div className="space-y-6">
         {posts.map((post) => (
           <PublicPostCard key={post.id} post={post} />
         ))}
       </div>
 
       {loading && (
-        <div className="mt-4 space-y-4">
+        <div className="mt-6 space-y-6">
           <PostCardSkeleton />
           <PostCardSkeleton />
         </div>

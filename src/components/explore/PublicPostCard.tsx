@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { UserRound, Lock } from "lucide-react";
+import { UserRound, Lock, Gift, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { EXCHANGE_MODES } from "@/lib/constants/exchange-modes";
@@ -10,9 +10,12 @@ import type { PostWithAuthor } from "@/types/database";
 export function PublicPostCard({ post }: { post: PostWithAuthor }) {
   const category = CATEGORIES.find((c) => c.value === post.category);
 
+  const isOffer = post.type === "offer";
+
   return (
     <Link href="/signup">
-      <Card className="transition-shadow hover:shadow-md cursor-pointer">
+      <Card className="overflow-hidden transition-shadow hover:shadow-md cursor-pointer">
+        <div className={`h-1 w-full ${isOffer ? "bg-primary" : "bg-amber-400"}`} />
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
             {/* Generic anonymous avatar */}
@@ -32,12 +35,14 @@ export function PublicPostCard({ post }: { post: PostWithAuthor }) {
                 })}
               </span>
             </div>
-            <Badge
-              variant={post.type === "offer" ? "default" : "secondary"}
-              className="shrink-0"
-            >
-              {post.type === "offer" ? "Offering" : "Looking for"}
-            </Badge>
+            <div className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+              isOffer
+                ? "bg-primary/10 text-primary"
+                : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+            }`}>
+              {isOffer ? <Gift className="h-3 w-3" /> : <Search className="h-3 w-3" />}
+              {isOffer ? "Offering" : "Looking for"}
+            </div>
           </div>
         </CardHeader>
 

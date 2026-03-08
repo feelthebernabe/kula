@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
+import { Gift, Search } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -22,9 +23,14 @@ export function PostCard({ post }: { post: PostWithAuthor }) {
     .toUpperCase()
     .slice(0, 2) || "?";
 
+  const isOffer = post.type === "offer";
+
   return (
     <Link href={`/posts/${post.id}`}>
-      <Card className={`transition-shadow hover:shadow-md ${post.status !== "active" ? "opacity-60" : ""}`}>
+      <Card className={`overflow-hidden transition-shadow hover:shadow-md ${post.status !== "active" ? "opacity-60" : ""}`}>
+        {/* Type accent strip */}
+        <div className={`h-1 w-full ${isOffer ? "bg-primary" : "bg-amber-400"}`} />
+
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
@@ -55,12 +61,17 @@ export function PostCard({ post }: { post: PostWithAuthor }) {
                 {post.status === "fulfilled" ? "Fulfilled" : "Closed"}
               </Badge>
             ) : (
-              <Badge
-                variant={post.type === "offer" ? "default" : "secondary"}
-                className="shrink-0"
-              >
-                {post.type === "offer" ? "Offering" : "Looking for"}
-              </Badge>
+              <div className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                isOffer
+                  ? "bg-primary/10 text-primary"
+                  : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+              }`}>
+                {isOffer
+                  ? <Gift className="h-3 w-3" />
+                  : <Search className="h-3 w-3" />
+                }
+                {isOffer ? "Offering" : "Looking for"}
+              </div>
             )}
           </div>
         </CardHeader>

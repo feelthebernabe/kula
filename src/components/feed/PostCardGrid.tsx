@@ -15,6 +15,8 @@ import {
   GraduationCap,
   Sofa,
   Briefcase,
+  Gift,
+  Search,
 } from "lucide-react";
 import type { PostWithAuthor } from "@/types/database";
 
@@ -70,14 +72,17 @@ export function PostCardGrid({ post }: { post: PostWithAuthor }) {
         )}
 
         {/* Type indicator - top left */}
-        <div
-          className={`absolute left-2 top-2 h-2.5 w-2.5 rounded-full shadow-sm ${
-            post.type === "offer"
-              ? "bg-primary"
-              : "bg-amber-500"
-          }`}
-          title={post.type === "offer" ? "Offering" : "Looking for"}
-        />
+        <div className={`absolute left-2 top-2 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm backdrop-blur-sm ${
+          post.type === "offer"
+            ? "bg-primary/90 text-primary-foreground"
+            : "bg-amber-400/90 text-amber-950"
+        }`}>
+          {post.type === "offer"
+            ? <Gift className="h-2.5 w-2.5" />
+            : <Search className="h-2.5 w-2.5" />
+          }
+          {post.type === "offer" ? "Offering" : "Wanted"}
+        </div>
 
         {/* Title overlay at bottom */}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-3 pt-8">
