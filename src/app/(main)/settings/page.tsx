@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Camera, X, CheckCircle2, Circle, Shield, Instagram, Twitter, Linkedin, Globe, Phone, Mail } from "lucide-react";
+import { DeleteAccountDialog } from "@/components/settings/DeleteAccountDialog";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
@@ -584,10 +585,19 @@ export default function SettingsPage() {
             Account
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Button variant="outline" onClick={handleSignOut}>
             Sign Out
           </Button>
+          <Separator />
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Permanently delete your account and all private data. Your posts
+              and reviews will remain but be attributed to &quot;Deleted
+              User&quot;.
+            </p>
+            <DeleteAccountDialog />
+          </div>
         </CardContent>
       </Card>
     </div>
