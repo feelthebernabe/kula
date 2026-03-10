@@ -28,10 +28,13 @@ import type { ExchangeMode, PostType } from "@/types/database";
 interface CreatePostFormProps {
   communities: { id: string; name: string }[];
   defaultCommunityId?: string;
+  defaultType?: "offer" | "request";
+  defaultTitle?: string;
+  defaultCategory?: string;
   pendingReviews?: number;
 }
 
-export function CreatePostForm({ communities, defaultCommunityId, pendingReviews = 0 }: CreatePostFormProps) {
+export function CreatePostForm({ communities, defaultCommunityId, defaultType, defaultTitle, defaultCategory, pendingReviews = 0 }: CreatePostFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -62,13 +65,13 @@ export function CreatePostForm({ communities, defaultCommunityId, pendingReviews
     );
   }
 
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(defaultType ? 1 : 0);
   const [loading, setLoading] = useState(false);
 
   // Form state
-  const [postType, setPostType] = useState<PostType | null>(null);
-  const [category, setCategory] = useState("");
-  const [title, setTitle] = useState("");
+  const [postType, setPostType] = useState<PostType | null>(defaultType ?? null);
+  const [category, setCategory] = useState(defaultCategory ?? "");
+  const [title, setTitle] = useState(defaultTitle ?? "");
   const [body, setBody] = useState("");
   const [exchangeModes, setExchangeModes] = useState<ExchangeMode[]>(["flexible"]);
   const [loanDuration, setLoanDuration] = useState("");

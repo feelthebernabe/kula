@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 export default async function NewPostPage({
   searchParams,
 }: {
-  searchParams: Promise<{ community?: string }>;
+  searchParams: Promise<{ community?: string; type?: string; title?: string; category?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -44,6 +44,9 @@ export default async function NewPostPage({
       <CreatePostForm
         communities={communities}
         defaultCommunityId={params.community}
+        defaultType={params.type as "offer" | "request" | undefined}
+        defaultTitle={params.title}
+        defaultCategory={params.category}
         pendingReviews={pendingReviews}
       />
     </div>

@@ -1,40 +1,43 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Search, X, Sparkles, LayoutGrid, List, Map, ChevronDown, Gift, HandHeart } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, X, Sparkles, LayoutGrid, List, Map, ChevronDown, Gift, HandHeart, Plus, Loader2 } from "lucide-react";
 import { CATEGORIES } from "@/lib/constants/categories";
+import { EXCHANGE_MODES } from "@/lib/constants/exchange-modes";
 import { useAskKula } from "@/lib/contexts/AskKulaContext";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ViewMode } from "./FeedList";
+import type { ExchangeMode } from "@/types/database";
 
-const NEED_EXAMPLES = [
-  "Find a power drill",
-  "Find babysitting",
-  "Find guitar lessons",
-  "Find moving help",
+const FIND_EXAMPLES = [
+  "a power drill",
+  "babysitting",
+  "guitar lessons",
+  "moving help",
 ];
 
-const OFFER_EXAMPLES = [
-  "Share home cooking",
-  "Offer garden tools",
-  "Lend your camera",
-  "Teach yoga classes",
-];
-
-const ALL_EXAMPLES = [
-  "Find a power drill",
-  "Share home cooking",
-  "Find babysitting",
-  "Offer garden tools",
-  "Find guitar lessons",
-  "Lend your camera",
+const SHARE_EXAMPLES = [
+  "home cooking",
+  "garden tools",
+  "your camera",
+  "yoga classes",
 ];
 
 export function FeedFilters({
@@ -52,30 +55,28 @@ export function FeedFilters({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const supabase = useMemo(() => createClient(), []);
   const [query, setQuery] = useState(currentQuery || "");
+  const [offerText, setOfferText] = useState("");
+  const [showQuickPost, setShowQuickPost] = useState(false);
+  const [quickCategory, setQuickCategory] = useState("");
+  const [quickExchangeModes, setQuickExchangeModes] = useState<ExchangeMode[]>(["flexible"]);
+  const [posting, setPosting] = useState(false);
   const [aiKeywords, setAiKeywords] = useState<string[] | null>(null);
   const [parsing, setParsing] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const typingRef = useRef(false);
-  const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  const [findIdx, setFindIdx] = useState(0);
+  const [shareIdx, setShareIdx] = useState(0);
   const { setIsOpen: openAskKula } = useAskKula();
-
-  const examples = currentType === "offer"
-    ? OFFER_EXAMPLES
-    : currentType === "request"
-      ? NEED_EXAMPLES
-      : ALL_EXAMPLES;
-
-  useEffect(() => {
-    setPlaceholderIdx(0);
-  }, [currentType]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setPlaceholderIdx((i) => (i + 1) % examples.length);
+      setFindIdx((i) => (i + 1) % FIND_EXAMPLES.length);
+      setShareIdx((i) => (i + 1) % SHARE_EXAMPLES.length);
     }, 3000);
     return () => clearInterval(interval);
-  }, [examples.length]);
+  }, []);
 
   useEffect(() => {
     // Don't overwrite what the user is actively typing
@@ -164,33 +165,175 @@ export function FeedFilters({
     router.push(`/feed?${params.toString()}`);
   }
 
+  async function handleQuickPost() {
+    const trimmed = offerText.trim();
+    if (trimmed.length < 5) {
+      toast.error("Title must be at least 5 characters");
+      return;
+    }
+    if (!quickCategory) {
+      toast.error("Please pick a category");
+      return;
+    }
+    if (quickExchangeModes.length === 0) {
+      toast.error("Please pick at least one exchange mode");
+      return;
+    }
+
+    setPosting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please log in to post");
+        router.push("/login");
+        return;
+      }
+
+      const { error } = await supabase.from("posts").insert({
+        author_id: user.id,
+        type: "offer" as const,
+        title: trimmed,
+        category: quickCategory,
+        exchange_modes: quickExchangeModes,
+      });
+
+      if (error) throw error;
+
+      toast.success("Posted!");
+      setOfferText("");
+      setQuickCategory("");
+      setQuickExchangeModes(["flexible"]);
+      setShowQuickPost(false);
+      router.refresh();
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setPosting(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
-      {/* Search Input */}
-      <form onSubmit={handleSmartSearch}>
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+      {/* Dual Input — Find & Share */}
+      <div className="grid grid-cols-2 gap-2">
+        {/* Find / Search box */}
+        <form onSubmit={handleSmartSearch} className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder={`${examples[placeholderIdx % examples.length]}...`}
+            placeholder={`Find ${FIND_EXAMPLES[findIdx % FIND_EXAMPLES.length]}...`}
             value={query}
             onChange={(e) => handleSearchChange(e.target.value)}
-            aria-label="Search posts"
-            className="w-full rounded-xl border border-border bg-card py-3 pl-11 pr-10 text-base shadow-sm transition-shadow placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            aria-label="Search for something you need"
+            className="w-full rounded-xl border border-border bg-card py-2.5 pl-9 pr-8 text-sm shadow-sm transition-shadow placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
           {query && !parsing && (
             <button
               type="button"
               onClick={clearSearch}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </form>
+
+        {/* Share / Offer box */}
+        <div className="relative">
+          <Plus className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
+          <input
+            type="text"
+            placeholder={`Share ${SHARE_EXAMPLES[shareIdx % SHARE_EXAMPLES.length]}...`}
+            value={offerText}
+            onChange={(e) => {
+              setOfferText(e.target.value);
+              if (e.target.value && !showQuickPost) setShowQuickPost(true);
+            }}
+            onFocus={() => { if (offerText) setShowQuickPost(true); }}
+            aria-label="Share something you can offer"
+            className="w-full rounded-xl border border-primary/30 bg-primary/5 py-2.5 pl-9 pr-3 text-sm shadow-sm transition-shadow placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+      </div>
+
+      {/* Inline Quick Post Form */}
+      {showQuickPost && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">Quick offer</span>
+            <button
+              type="button"
+              onClick={() => { setShowQuickPost(false); setOfferText(""); setQuickCategory(""); setQuickExchangeModes(["flexible"]); }}
+              className="text-muted-foreground hover:text-foreground"
+              aria-label="Close quick post"
             >
               <X className="h-4 w-4" />
             </button>
-          )}
+          </div>
+          <input
+            type="text"
+            placeholder="What are you offering?"
+            value={offerText}
+            onChange={(e) => setOfferText(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          <Select value={quickCategory} onValueChange={setQuickCategory}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Pick a category" />
+            </SelectTrigger>
+            <SelectContent>
+              {CATEGORIES.map((cat) => (
+                <SelectItem key={cat.value} value={cat.value}>
+                  {cat.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex flex-wrap gap-1.5">
+            {EXCHANGE_MODES.map((mode) => {
+              const val = mode.value as ExchangeMode;
+              const selected = quickExchangeModes.includes(val);
+              return (
+                <Badge
+                  key={mode.value}
+                  variant={selected ? "default" : "outline"}
+                  className={`cursor-pointer text-xs ${selected ? "" : "opacity-60 hover:opacity-100"}`}
+                  onClick={() =>
+                    setQuickExchangeModes((prev) =>
+                      prev.includes(val)
+                        ? prev.filter((m) => m !== val)
+                        : [...prev, val]
+                    )
+                  }
+                >
+                  {mode.label}
+                </Badge>
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-between">
+            <Link
+              href={`/posts/new?type=offer${offerText.trim() ? `&title=${encodeURIComponent(offerText.trim())}` : ""}${quickCategory ? `&category=${encodeURIComponent(quickCategory)}` : ""}`}
+              className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Add photos, description & more
+            </Link>
+            <Button
+              size="sm"
+              onClick={handleQuickPost}
+              disabled={posting}
+            >
+              {posting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Gift className="mr-1.5 h-3.5 w-3.5" />}
+              Post
+            </Button>
+          </div>
         </div>
-        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span>or</span>
+      )}
+
+      {/* Helper links */}
+      {!showQuickPost && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
           <button
             type="button"
             onClick={() => openAskKula(true)}
@@ -200,7 +343,7 @@ export function FeedFilters({
             Ask Kula AI
           </button>
         </div>
-      </form>
+      )}
 
       {/* AI Parsing Indicator */}
       {parsing && (
