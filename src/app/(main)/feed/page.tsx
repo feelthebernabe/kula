@@ -1,10 +1,5 @@
-import Link from "next/link";
-import { Map } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { FeedViewManager } from "@/components/feed/FeedViewManager";
-import { MatchesForYou } from "@/components/feed/MatchesForYou";
-import { AskKulaBanner } from "@/components/feed/AskKulaBanner";
-import { Button } from "@/components/ui/button";
 import type { Metadata } from "next";
 import type { PostWithAuthor } from "@/types/database";
 
@@ -75,40 +70,12 @@ export default async function FeedPage({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            What do you need?
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Browse offers and requests from your community
-          </p>
-        </div>
-        <Link
-          href={`/map${params.category ? `?category=${params.category}` : ""}${
-            params.type
-              ? `${params.category ? "&" : "?"}type=${params.type}`
-              : ""
-          }`}
-        >
-          <Button variant="outline" size="sm">
-            <Map className="mr-1.5 h-4 w-4" />
-            Map view
-          </Button>
-        </Link>
-      </div>
-
-      {/* AskKula AI banner + Smart Matches — only shown when not searching */}
-      {!params.q && <AskKulaBanner />}
-      {!params.q && user && <MatchesForYou userId={user.id} />}
-
-      <FeedViewManager
-        currentCategory={params.category}
-        currentType={params.type}
-        currentQuery={params.q}
-        initialPosts={posts}
-      />
-    </div>
+    <FeedViewManager
+      currentCategory={params.category}
+      currentType={params.type}
+      currentQuery={params.q}
+      initialPosts={posts}
+      userId={!params.q ? user?.id : undefined}
+    />
   );
 }

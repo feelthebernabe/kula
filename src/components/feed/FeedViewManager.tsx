@@ -13,11 +13,13 @@ export function FeedViewManager({
   currentType,
   currentQuery,
   initialPosts,
+  userId,
 }: {
   currentCategory?: string;
   currentType?: string;
   currentQuery?: string;
   initialPosts: PostWithAuthor[];
+  userId?: string;
 }) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
 
@@ -48,6 +50,7 @@ export function FeedViewManager({
         type={currentType}
         searchQuery={currentQuery}
         viewMode={viewMode}
+        userId={userId}
       />
     </SavedPostsProvider>
   );

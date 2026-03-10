@@ -4,21 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Home,
-  Search,
+  Mail,
   Users,
-  MessageSquare,
-  Wallet,
   User,
-  Map,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/feed", label: "Feed", icon: Home },
-  { href: "/map", label: "Map", icon: Map },
-  { href: "/explore", label: "Explore", icon: Search },
+  { href: "/messages", label: "Messages", icon: Mail },
   { href: "/groups", label: "Groups", icon: Users },
-  { href: "/discuss", label: "Discuss", icon: MessageSquare },
-  { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/profile", label: "Profile", icon: User },
 ];
 

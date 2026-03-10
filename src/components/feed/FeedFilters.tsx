@@ -2,10 +2,16 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Search, X, Sparkles, LayoutGrid, List } from "lucide-react";
+import { Search, X, Sparkles, LayoutGrid, List, Map, ChevronDown } from "lucide-react";
 import { CATEGORIES } from "@/lib/constants/categories";
 import { useAskKula } from "@/lib/contexts/AskKulaContext";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { ViewMode } from "./FeedList";
 
 const PLACEHOLDER_EXAMPLES = [
@@ -192,7 +198,7 @@ export function FeedFilters({
         </div>
       )}
 
-      {/* Type Filter + View Toggle */}
+      {/* Type Filter + Map + View Toggle */}
       <div className="flex items-center gap-2">
         <Badge
           variant={!currentType ? "default" : "outline"}
@@ -219,39 +225,52 @@ export function FeedFilters({
         >
           Requests
         </Badge>
-        <div className="ml-auto flex rounded-lg border border-border">
-          <button
-            type="button"
-            onClick={() => onViewModeChange("list")}
-            className={`rounded-l-lg p-1.5 ${
-              viewMode === "list"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
+        <div className="ml-auto flex items-center gap-1.5">
+          <Link
+            href={`/map${currentCategory ? `?category=${currentCategory}` : ""}${
+              currentType
+                ? `${currentCategory ? "&" : "?"}type=${currentType}`
+                : ""
             }`}
-            title="List view"
-            aria-label="Switch to list view"
+            className="flex items-center gap-1 rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            title="Map view"
           >
-            <List className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewModeChange("grid")}
-            className={`rounded-r-lg p-1.5 ${
-              viewMode === "grid"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Grid view"
-            aria-label="Switch to grid view"
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </button>
+            <Map className="h-4 w-4" />
+          </Link>
+          <div className="flex rounded-lg border border-border">
+            <button
+              type="button"
+              onClick={() => onViewModeChange("list")}
+              className={`rounded-l-lg p-1.5 ${
+                viewMode === "list"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="List view"
+              aria-label="Switch to list view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewModeChange("grid")}
+              className={`rounded-r-lg p-1.5 ${
+                viewMode === "grid"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Grid view"
+              aria-label="Switch to grid view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Category Filter */}
-      <div className="flex flex-wrap gap-2">
-        {currentCategory && (
+      {/* Category Filter — collapsed with "+ More" */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {currentCategory ? (
           <Badge
             variant="secondary"
             className="cursor-pointer"
@@ -261,10 +280,9 @@ export function FeedFilters({
               currentCategory}{" "}
             ×
           </Badge>
-        )}
-        {!currentCategory && (
-          <div className="flex flex-wrap gap-1.5">
-            {CATEGORIES.map((cat) => (
+        ) : (
+          <>
+            {CATEGORIES.slice(0, 4).map((cat) => (
               <Badge
                 key={cat.value}
                 variant="outline"
@@ -274,7 +292,32 @@ export function FeedFilters({
                 {cat.label}
               </Badge>
             ))}
-          </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className="cursor-pointer text-xs"
+                >
+                  + {CATEGORIES.length - 4} more
+                  <ChevronDown className="ml-0.5 h-3 w-3" />
+                </Badge>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" align="start">
+                <div className="flex flex-col gap-1">
+                  {CATEGORIES.slice(4).map((cat) => (
+                    <button
+                      key={cat.value}
+                      type="button"
+                      className="rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-accent transition-colors"
+                      onClick={() => setFilter("category", cat.value)}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </>
         )}
       </div>
     </div>

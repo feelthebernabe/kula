@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Mail, Plus, UserPlus, LogOut, Sparkles } from "lucide-react";
-import { InviteDialog } from "@/components/invites/InviteDialog";
-import { useAskKula } from "@/lib/contexts/AskKulaContext";
+import { Plus, LogOut, Bookmark, UserPlus } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +19,6 @@ import type { Profile } from "@/types/database";
 export function TopBar({ profile, unreadNotifications = 0 }: { profile: Profile | null; unreadNotifications?: number }) {
   const router = useRouter();
   const supabase = createClient();
-  const { setIsOpen: openAskKula } = useAskKula();
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -60,43 +57,6 @@ export function TopBar({ profile, unreadNotifications = 0 }: { profile: Profile 
             </Button>
           </Link>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-primary"
-            onClick={() => openAskKula(true)}
-          >
-            <Sparkles className="h-5 w-5" />
-            <span className="sr-only">Ask Kula AI</span>
-          </Button>
-
-          {profile && (
-            <InviteDialog
-              userId={profile.id}
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <UserPlus className="h-5 w-5" />
-                  <span className="sr-only">Invite neighbor</span>
-                </Button>
-              }
-            />
-          )}
-
-          <Link href="/messages">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <Mail className="h-5 w-5" />
-              <span className="sr-only">Messages</span>
-            </Button>
-          </Link>
-
           {profile && (
             <NotificationBell
               userId={profile.id}
@@ -126,7 +86,20 @@ export function TopBar({ profile, unreadNotifications = 0 }: { profile: Profile 
                 <Link href="/exchanges">My Exchanges</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
+                <Link href="/saved">
+                  <Bookmark className="mr-2 h-4 w-4" />
+                  Saved Posts
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link href="/wallet">My Wallet</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/invite">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Invite Neighbors
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/settings">Settings</Link>

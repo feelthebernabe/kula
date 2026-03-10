@@ -6,10 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { EXCHANGE_MODES } from "@/lib/constants/exchange-modes";
 import { CATEGORIES } from "@/lib/constants/categories";
-import { CONDITIONS } from "@/lib/constants/conditions";
-import { TrustScoreBadge } from "@/components/profiles/TrustScoreBadge";
-import { QuickAskButton } from "./QuickAskButton";
-import { PostCardBookmark } from "./PostCardBookmark";
 import type { PostWithAuthor } from "@/types/database";
 
 export function PostCard({ post }: { post: PostWithAuthor }) {
@@ -43,19 +39,15 @@ export function PostCard({ post }: { post: PostWithAuthor }) {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground truncate">
-                  {post.author.display_name}
-                </span>
-                <TrustScoreBadge score={post.author.trust_score} size="sm" />
-              </div>
+              <span className="text-sm font-medium text-foreground truncate block">
+                {post.author.display_name}
+              </span>
               <span className="text-xs text-muted-foreground">
                 {formatDistanceToNow(new Date(post.created_at!), {
                   addSuffix: true,
                 })}
               </span>
             </div>
-            <PostCardBookmark postId={post.id} />
             {post.status !== "active" ? (
               <Badge variant="outline" className="shrink-0 text-muted-foreground">
                 {post.status === "fulfilled" ? "Fulfilled" : "Closed"}
@@ -87,32 +79,27 @@ export function PostCard({ post }: { post: PostWithAuthor }) {
           )}
 
           {post.images && post.images.length > 0 && (
-            <div className="mt-3 flex gap-2 overflow-hidden rounded-lg">
-              {post.images.slice(0, 2).map((img, i) => (
-                <div
-                  key={i}
-                  className="relative aspect-video flex-1 overflow-hidden rounded-lg bg-muted"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={img}
-                    alt={`${post.title} photo ${i + 1}`}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              ))}
-              {post.images.length > 2 && (
-                <div className="flex aspect-video flex-1 items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">
-                  +{post.images.length - 2} more
-                </div>
-              )}
+            <div className="mt-3 overflow-hidden rounded-lg">
+              <div className="relative aspect-video overflow-hidden rounded-lg bg-muted">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={post.images[0]}
+                  alt={`${post.title} photo`}
+                  className="h-full w-full object-cover"
+                />
+                {post.images.length > 1 && (
+                  <span className="absolute bottom-2 right-2 rounded-md bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                    +{post.images.length - 1}
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
 
         <CardFooter className="flex items-center justify-between pt-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            {(post.exchange_modes ?? []).map((mode) => {
+            {(post.exchange_modes ?? []).slice(0, 2).map((mode) => {
               const modeInfo = EXCHANGE_MODES.find((m) => m.value === mode);
               return (
                 <Badge key={mode} variant="outline" className="text-xs">
@@ -120,24 +107,9 @@ export function PostCard({ post }: { post: PostWithAuthor }) {
                 </Badge>
               );
             })}
-            {post.status === "active" && (
-              <QuickAskButton postId={post.id} authorId={post.author_id} />
-            )}
           </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             {category && <span>{category.label}</span>}
-            {post.condition && (
-              <span>
-                {CONDITIONS.find((c) => c.value === post.condition)?.label ??
-                  post.condition}
-              </span>
-            )}
-            {(post.response_count ?? 0) > 0 && (
-              <span>
-                {post.response_count}{" "}
-                {post.response_count === 1 ? "response" : "responses"}
-              </span>
-            )}
           </div>
         </CardFooter>
       </Card>

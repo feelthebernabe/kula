@@ -70,7 +70,7 @@ export function CreatePostForm({ communities, defaultCommunityId, pendingReviews
   const [category, setCategory] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [exchangeModes, setExchangeModes] = useState<ExchangeMode[]>([]);
+  const [exchangeModes, setExchangeModes] = useState<ExchangeMode[]>(["flexible"]);
   const [loanDuration, setLoanDuration] = useState("");
   const [timeDollarAmount, setTimeDollarAmount] = useState("");
   const [condition, setCondition] = useState("");
@@ -148,7 +148,7 @@ export function CreatePostForm({ communities, defaultCommunityId, pendingReviews
     <div className="space-y-6">
       {/* Step indicators */}
       <div className="flex gap-2">
-        {["Type", "Category", "Details", "Exchange"].map((label, i) => (
+        {["Type & Category", "Details"].map((label, i) => (
           <button
             key={label}
             onClick={() => {
@@ -167,84 +167,130 @@ export function CreatePostForm({ communities, defaultCommunityId, pendingReviews
         ))}
       </div>
 
-      {/* Step 0: Type */}
+      {/* Step 0: Type + Category + Exchange Mode */}
       {step === 0 && (
-        <div className="grid grid-cols-2 gap-4">
-          <Card
-            className={`cursor-pointer transition-all ${
-              postType === "offer"
-                ? "border-primary ring-2 ring-primary/20"
-                : "hover:border-primary/30"
-            }`}
-            onClick={() => {
-              setPostType("offer");
-              setStep(1);
-            }}
-          >
-            <CardContent className="flex flex-col items-center p-6 text-center">
-              <span className="text-3xl">🎁</span>
-              <h3 className="mt-3 text-lg font-semibold">Offer</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                I have something to share
-              </p>
-            </CardContent>
-          </Card>
-          <Card
-            className={`cursor-pointer transition-all ${
-              postType === "request"
-                ? "border-primary ring-2 ring-primary/20"
-                : "hover:border-primary/30"
-            }`}
-            onClick={() => {
-              setPostType("request");
-              setStep(1);
-            }}
-          >
-            <CardContent className="flex flex-col items-center p-6 text-center">
-              <span className="text-3xl">🙋</span>
-              <h3 className="mt-3 text-lg font-semibold">Request</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                I need something
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Step 1: Category */}
-      {step === 1 && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {CATEGORIES.map((cat) => (
+        <div className="space-y-5">
+          {/* Type toggle */}
+          <div className="space-y-2">
+            <Label>What are you posting? *</Label>
+            <div className="grid grid-cols-2 gap-3">
               <button
-                key={cat.value}
-                onClick={() => {
-                  setCategory(cat.value);
-                  setStep(2);
-                }}
-                className={`rounded-xl border p-4 text-left transition-all ${
-                  category === cat.value
+                type="button"
+                onClick={() => setPostType("offer")}
+                className={`rounded-xl border p-3 text-center transition-all ${
+                  postType === "offer"
                     ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                    : "border-border hover:border-primary/30 hover:bg-accent"
+                    : "border-border hover:border-primary/30"
                 }`}
               >
-                <span className="text-sm font-medium text-foreground">
-                  {cat.label}
-                </span>
-                <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
-                  {cat.description}
-                </p>
+                <span className="text-xl">🎁</span>
+                <p className="mt-1 text-sm font-semibold">Offer</p>
+                <p className="text-xs text-muted-foreground">I have something to share</p>
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => setPostType("request")}
+                className={`rounded-xl border p-3 text-center transition-all ${
+                  postType === "request"
+                    ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                    : "border-border hover:border-primary/30"
+                }`}
+              >
+                <span className="text-xl">🙋</span>
+                <p className="mt-1 text-sm font-semibold">Request</p>
+                <p className="text-xs text-muted-foreground">I need something</p>
+              </button>
+            </div>
           </div>
-          <Button variant="ghost" onClick={() => setStep(0)}>
-            Back
-          </Button>
+
+          {/* Category dropdown */}
+          <div className="space-y-2">
+            <Label>Category *</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORIES.map((cat) => (
+                  <SelectItem key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Exchange modes */}
+          <div className="space-y-2">
+            <Label>Exchange Mode</Label>
+            <p className="text-xs text-muted-foreground">
+              How would you like to exchange? &quot;Flexible&quot; means open to anything.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {EXCHANGE_MODES.map((mode) => (
+                <label
+                  key={mode.value}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer text-sm transition-colors ${
+                    exchangeModes.includes(mode.value as ExchangeMode)
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/30"
+                  }`}
+                >
+                  <Checkbox
+                    checked={exchangeModes.includes(mode.value as ExchangeMode)}
+                    onCheckedChange={() =>
+                      toggleExchangeMode(mode.value as ExchangeMode)
+                    }
+                  />
+                  <span className="font-medium">{mode.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {exchangeModes.includes("loan") && (
+            <div className="space-y-2">
+              <Label htmlFor="loanDuration">Expected Loan Duration</Label>
+              <Input
+                id="loanDuration"
+                placeholder="e.g., 1 week, 3 days, 1 month"
+                value={loanDuration}
+                onChange={(e) => setLoanDuration(e.target.value)}
+              />
+            </div>
+          )}
+
+          {exchangeModes.includes("time_dollar") && (
+            <div className="space-y-2">
+              <Label htmlFor="timeDollarAmount">Time-Dollar Amount</Label>
+              <Input
+                id="timeDollarAmount"
+                type="number"
+                step="0.25"
+                min="0.25"
+                placeholder="e.g., 1.0 (hours)"
+                value={timeDollarAmount}
+                onChange={(e) => setTimeDollarAmount(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                1 time-dollar = 1 hour of service
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <Button
+              onClick={() => setStep(1)}
+              disabled={!postType || !category || exchangeModes.length === 0}
+            >
+              Continue
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Step 2: Details */}
-      {step === 2 && (
+      {/* Step 1: Details */}
+      {step === 1 && (
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Title *</Label>
@@ -326,91 +372,12 @@ export function CreatePostForm({ communities, defaultCommunityId, pendingReviews
             </div>
           )}
           <div className="flex justify-between">
-            <Button variant="ghost" onClick={() => setStep(1)}>
-              Back
-            </Button>
-            <Button onClick={() => setStep(3)} disabled={!title || title.length < 5}>
-              Continue
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3: Exchange modes */}
-      {step === 3 && (
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <Label>Exchange Mode(s) *</Label>
-            <p className="text-sm text-muted-foreground">
-              How would you like to exchange? Select one or more.
-            </p>
-            <div className="space-y-3">
-              {EXCHANGE_MODES.map((mode) => (
-                <label
-                  key={mode.value}
-                  className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-colors ${
-                    exchangeModes.includes(mode.value as ExchangeMode)
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/30"
-                  }`}
-                >
-                  <Checkbox
-                    checked={exchangeModes.includes(mode.value as ExchangeMode)}
-                    onCheckedChange={() =>
-                      toggleExchangeMode(mode.value as ExchangeMode)
-                    }
-                    className="mt-0.5"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-foreground">
-                      {mode.label}
-                    </span>
-                    <p className="text-xs text-muted-foreground">
-                      {mode.description}
-                    </p>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {exchangeModes.includes("loan") && (
-            <div className="space-y-2">
-              <Label htmlFor="loanDuration">Expected Loan Duration</Label>
-              <Input
-                id="loanDuration"
-                placeholder="e.g., 1 week, 3 days, 1 month"
-                value={loanDuration}
-                onChange={(e) => setLoanDuration(e.target.value)}
-              />
-            </div>
-          )}
-
-          {exchangeModes.includes("time_dollar") && (
-            <div className="space-y-2">
-              <Label htmlFor="timeDollarAmount">Time-Dollar Amount</Label>
-              <Input
-                id="timeDollarAmount"
-                type="number"
-                step="0.25"
-                min="0.25"
-                placeholder="e.g., 1.0 (hours)"
-                value={timeDollarAmount}
-                onChange={(e) => setTimeDollarAmount(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                1 time-dollar = 1 hour of service
-              </p>
-            </div>
-          )}
-
-          <div className="flex justify-between">
-            <Button variant="ghost" onClick={() => setStep(2)}>
+            <Button variant="ghost" onClick={() => setStep(0)}>
               Back
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={loading || exchangeModes.length === 0}
+              disabled={loading || !title || title.length < 5}
             >
               {loading ? "Publishing..." : "Publish Post"}
             </Button>

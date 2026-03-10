@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Bookmark, Plus, Mail, User } from "lucide-react";
+import { Home, Plus, Mail, User } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/feed", label: "Feed", icon: Home },
-  { href: "/saved", label: "Saved", icon: Bookmark },
   { href: "/posts/new", label: "Post", icon: Plus, isCreate: true },
   { href: "/messages", label: "Messages", icon: Mail },
   { href: "/profile", label: "Profile", icon: User },

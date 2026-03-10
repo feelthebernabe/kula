@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PostCard } from "./PostCard";
 import { PostCardGrid } from "./PostCardGrid";
 import { PostCardSkeleton } from "@/components/shared/Skeletons";
+import { MatchesForYou } from "./MatchesForYou";
 import type { PostWithAuthor } from "@/types/database";
 
 export type ViewMode = "list" | "grid";
@@ -15,6 +16,7 @@ interface FeedListProps {
   type?: string;
   searchQuery?: string;
   viewMode?: ViewMode;
+  userId?: string;
 }
 
 const PAGE_SIZE = 10;
@@ -40,6 +42,7 @@ export function FeedList({
   type,
   searchQuery,
   viewMode = "list",
+  userId,
 }: FeedListProps) {
   const [posts, setPosts] = useState<PostWithAuthor[]>(
     initialPosts as PostWithAuthor[]
@@ -167,6 +170,12 @@ export function FeedList({
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
+        </div>
+      )}
+
+      {userId && !searchQuery && posts.length >= PAGE_SIZE && (
+        <div className="my-6">
+          <MatchesForYou userId={userId} />
         </div>
       )}
 
