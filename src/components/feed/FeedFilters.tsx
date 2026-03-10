@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Search, X, Sparkles, LayoutGrid, List, Map, ChevronDown } from "lucide-react";
+import { Search, X, Sparkles, LayoutGrid, List, Map, ChevronDown, Gift, HandHeart } from "lucide-react";
 import { CATEGORIES } from "@/lib/constants/categories";
 import { useAskKula } from "@/lib/contexts/AskKulaContext";
 import {
@@ -198,34 +198,46 @@ export function FeedFilters({
         </div>
       )}
 
-      {/* Type Filter + Map + View Toggle */}
+      {/* Type Tabs — equal-weight Offers / Needs */}
       <div className="flex items-center gap-2">
-        <Badge
-          variant={!currentType ? "default" : "outline"}
-          className="cursor-pointer"
-          onClick={() => setFilter("type", null)}
-        >
-          All
-        </Badge>
-        <Badge
-          variant={currentType === "offer" ? "default" : "outline"}
-          className="cursor-pointer"
-          onClick={() =>
-            setFilter("type", currentType === "offer" ? null : "offer")
-          }
-        >
-          Offers
-        </Badge>
-        <Badge
-          variant={currentType === "request" ? "default" : "outline"}
-          className="cursor-pointer"
-          onClick={() =>
-            setFilter("type", currentType === "request" ? null : "request")
-          }
-        >
-          Requests
-        </Badge>
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="flex flex-1 rounded-xl border border-border bg-muted/40 p-1">
+          <button
+            type="button"
+            onClick={() => setFilter("type", null)}
+            className={`flex-1 rounded-lg py-2 text-center text-sm font-medium transition-all ${
+              !currentType
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("type", currentType === "offer" ? null : "offer")}
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-center text-sm font-medium transition-all ${
+              currentType === "offer"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Gift className="h-4 w-4" />
+            Offers
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("type", currentType === "request" ? null : "request")}
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-center text-sm font-medium transition-all ${
+              currentType === "request"
+                ? "bg-amber-500 text-white shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <HandHeart className="h-4 w-4" />
+            Needs
+          </button>
+        </div>
+        <div className="flex items-center gap-1.5">
           <Link
             href={`/map${currentCategory ? `?category=${currentCategory}` : ""}${
               currentType
