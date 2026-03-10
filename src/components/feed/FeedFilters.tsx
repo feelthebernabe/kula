@@ -14,13 +14,27 @@ import {
 } from "@/components/ui/popover";
 import type { ViewMode } from "./FeedList";
 
-const PLACEHOLDER_EXAMPLES = [
-  "power drill",
-  "babysitting",
-  "guitar lessons",
-  "moving help",
-  "home cooking",
-  "garden tools",
+const NEED_EXAMPLES = [
+  "Find a power drill",
+  "Find babysitting",
+  "Find guitar lessons",
+  "Find moving help",
+];
+
+const OFFER_EXAMPLES = [
+  "Share home cooking",
+  "Offer garden tools",
+  "Lend your camera",
+  "Teach yoga classes",
+];
+
+const ALL_EXAMPLES = [
+  "Find a power drill",
+  "Share home cooking",
+  "Find babysitting",
+  "Offer garden tools",
+  "Find guitar lessons",
+  "Lend your camera",
 ];
 
 export function FeedFilters({
@@ -46,12 +60,22 @@ export function FeedFilters({
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const { setIsOpen: openAskKula } = useAskKula();
 
+  const examples = currentType === "offer"
+    ? OFFER_EXAMPLES
+    : currentType === "request"
+      ? NEED_EXAMPLES
+      : ALL_EXAMPLES;
+
+  useEffect(() => {
+    setPlaceholderIdx(0);
+  }, [currentType]);
+
   useEffect(() => {
     const interval = setInterval(() => {
-      setPlaceholderIdx((i) => (i + 1) % PLACEHOLDER_EXAMPLES.length);
+      setPlaceholderIdx((i) => (i + 1) % examples.length);
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [examples.length]);
 
   useEffect(() => {
     // Don't overwrite what the user is actively typing
@@ -148,7 +172,7 @@ export function FeedFilters({
           <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder={`Search for ${PLACEHOLDER_EXAMPLES[placeholderIdx]}...`}
+            placeholder={`${examples[placeholderIdx % examples.length]}...`}
             value={query}
             onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Search posts"
