@@ -19,7 +19,7 @@ export function BottomNav({
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background md:hidden">
+    <nav aria-label="Main navigation" className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background md:hidden">
       <div className="flex h-16 items-center justify-around">
         {NAV_ITEMS.map(({ href, label, icon: Icon, isCreate }) => {
           const isActive =
@@ -30,9 +30,10 @@ export function BottomNav({
               <Link
                 key={href}
                 href={href}
-                className="flex flex-col items-center gap-1 px-3 py-2 text-xs"
+                className="flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-1 px-3 text-xs"
+                aria-label="Create post"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <Icon className="h-5 w-5" />
                 </div>
               </Link>
@@ -43,7 +44,8 @@ export function BottomNav({
             <Link
               key={href}
               href={href}
-              className={`relative flex flex-col items-center gap-1 px-3 py-2 text-xs transition-colors ${
+              aria-current={isActive ? "page" : undefined}
+              className={`relative flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-1 px-3 text-xs transition-colors ${
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
@@ -52,7 +54,7 @@ export function BottomNav({
               <Icon className="h-5 w-5" />
               <span>{label}</span>
               {label === "Messages" && unreadMessages > 0 && (
-                <span className="absolute right-1.5 top-1 h-2 w-2 rounded-full bg-destructive" />
+                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-destructive" aria-label={`${unreadMessages} unread messages`} />
               )}
             </Link>
           );

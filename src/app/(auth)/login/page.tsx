@@ -23,6 +23,8 @@ export default function LoginPage() {
       fallback={
         <Card>
           <CardHeader className="text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon.svg" alt="Kula" className="mx-auto mb-2 h-10 w-10" />
             <CardTitle className="text-2xl font-bold">
               Welcome back to <span className="text-primary">Kula</span>
             </CardTitle>
@@ -87,9 +89,28 @@ function LoginForm() {
     router.refresh();
   }
 
+  async function handleForgotPassword() {
+    if (!email.trim()) {
+      toast.error("Enter your email address first");
+      return;
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Password reset email sent! Check your inbox.");
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="text-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icon.svg" alt="Kula" className="mx-auto mb-2 h-10 w-10" />
         <CardTitle className="text-2xl font-bold">
           Welcome back to <span className="text-primary">Kula</span>
         </CardTitle>
@@ -98,7 +119,7 @@ function LoginForm() {
         </CardDescription>
       </CardHeader>
       {errorParam === "auth" && (
-        <div className="mx-6 mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="mx-6 mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
           There was a problem signing you in. Please try again.
         </div>
       )}
@@ -116,7 +137,16 @@ function LoginForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Forgot password?
+              </button>
+            </div>
             <Input
               id="password"
               type="password"

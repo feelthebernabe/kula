@@ -147,6 +147,23 @@
   }
 }
 
+/* Hide scrollbar but keep scrolling */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse,
+  .animate-spin {
+    animation: none;
+  }
+}
+
 /* Leaflet map overrides */
 .leaflet-container {
   font-family: inherit;

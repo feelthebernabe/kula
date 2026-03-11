@@ -12,7 +12,6 @@ import {
   Star,
   Users,
 } from "lucide-react";
-import { HeroSearch } from "@/components/search/HeroSearch";
 
 export default async function LandingPage() {
   const supabase = await createClient();
@@ -48,6 +47,9 @@ export default async function LandingPage() {
         ).toFixed(1)
       : "5.0";
 
+  // Only show social proof if there are meaningful numbers
+  const showSocialProof = userCount >= 5 || exchangeCount >= 1;
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Nav */}
@@ -81,7 +83,7 @@ export default async function LandingPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.svg"
-            alt="Kula"
+            alt="Kula logo"
             className="mx-auto mb-8 h-24 w-24 md:h-28 md:w-28"
           />
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
@@ -93,42 +95,45 @@ export default async function LandingPage() {
             exchange time — building trust and community one exchange at a time.
           </p>
 
-          {/* Hero search bar */}
-          <div className="mt-10">
-            <HeroSearch />
-          </div>
-
-          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/signup"
               className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
             >
-              Join Your Community
+              Get Started
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="/browse"
-              className="rounded-lg border border-border px-8 py-3.5 text-base font-semibold text-foreground transition-colors hover:bg-accent"
+              className="rounded-lg border border-border px-6 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               Browse the feed
             </Link>
           </div>
 
-          {/* Social proof */}
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <Users className="h-4 w-4 text-primary" />
-              <span>{userCount}+ neighbors sharing</span>
+          {/* Social proof — only show when meaningful */}
+          {showSocialProof && (
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
+              {userCount >= 5 && (
+                <div className="flex items-center gap-1.5">
+                  <Users className="h-4 w-4 text-primary" />
+                  <span>{userCount}+ neighbors sharing</span>
+                </div>
+              )}
+              {exchangeCount >= 1 && (
+                <div className="flex items-center gap-1.5">
+                  <Handshake className="h-4 w-4 text-primary" />
+                  <span>{exchangeCount}+ exchanges completed</span>
+                </div>
+              )}
+              {ratingsResult.data && ratingsResult.data.length >= 3 && (
+                <div className="flex items-center gap-1.5">
+                  <Star className="h-4 w-4 text-primary" />
+                  <span>{avgRating} avg trust rating</span>
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-1.5">
-              <Handshake className="h-4 w-4 text-primary" />
-              <span>{exchangeCount}+ exchanges completed</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Star className="h-4 w-4 text-primary" />
-              <span>{avgRating} avg trust rating</span>
-            </div>
-          </div>
+          )}
         </div>
       </section>
 
@@ -147,7 +152,7 @@ export default async function LandingPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Gift className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="mt-4 text-sm font-semibold text-foreground">
+              <h3 className="mt-4 font-semibold text-foreground">
                 Share Freely
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -159,7 +164,7 @@ export default async function LandingPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Shield className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="mt-4 text-sm font-semibold text-foreground">
+              <h3 className="mt-4 font-semibold text-foreground">
                 Trust Built In
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -171,7 +176,7 @@ export default async function LandingPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Sprout className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="mt-4 text-sm font-semibold text-foreground">
+              <h3 className="mt-4 font-semibold text-foreground">
                 Local First
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -194,7 +199,7 @@ export default async function LandingPage() {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
                 1
               </div>
-              <h3 className="mt-4 font-semibold text-foreground">Post</h3>
+              <h3 className="mt-4 text-lg font-semibold text-foreground">Post</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 Share what you can offer or what you need. Add photos, pick your
                 exchange modes, and post.
@@ -204,7 +209,7 @@ export default async function LandingPage() {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
                 2
               </div>
-              <h3 className="mt-4 font-semibold text-foreground">Connect</h3>
+              <h3 className="mt-4 text-lg font-semibold text-foreground">Connect</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 Message your neighbor, work out the details, and propose an
                 exchange that works for both of you.
@@ -214,7 +219,7 @@ export default async function LandingPage() {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
                 3
               </div>
-              <h3 className="mt-4 font-semibold text-foreground">Share</h3>
+              <h3 className="mt-4 text-lg font-semibold text-foreground">Share</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 Complete the exchange, leave a review, and build your trust in
                 the community.
@@ -226,7 +231,7 @@ export default async function LandingPage() {
               href="/signup"
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
             >
-              Start Sharing Today
+              Get Started
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -234,7 +239,7 @@ export default async function LandingPage() {
       </section>
 
       {/* Testimonial */}
-      <section className="border-t border-border bg-accent/30 px-4 py-16">
+      <section className="border-t border-border bg-accent/30 px-4 py-20">
         <div className="mx-auto max-w-2xl text-center">
           <MessageCircle className="mx-auto h-8 w-8 text-primary/40" />
           <blockquote className="mt-6 text-lg italic leading-relaxed text-foreground">

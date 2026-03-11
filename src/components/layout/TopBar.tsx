@@ -66,7 +66,7 @@ export function TopBar({ profile, unreadNotifications = 0 }: { profile: Profile 
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="ml-1">
+              <Button variant="ghost" size="icon" className="ml-1" aria-label="User menu">
                 <Avatar className="h-8 w-8">
                   <AvatarImage
                     src={profile?.avatar_url || undefined}

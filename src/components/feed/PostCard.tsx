@@ -22,10 +22,10 @@ export function PostCard({ post }: { post: PostWithAuthor }) {
   const isOffer = post.type === "offer";
 
   return (
-    <Link href={`/posts/${post.id}`}>
+    <Link href={`/posts/${post.id}`} className="block rounded-xl focus-visible:outline-2 focus-visible:outline-primary">
       <Card className={`overflow-hidden transition-shadow hover:shadow-md ${post.status !== "active" ? "opacity-60" : ""}`}>
         {/* Type accent strip */}
-        <div className={`h-1 w-full ${isOffer ? "bg-primary" : "bg-amber-400"}`} />
+        <div className={`h-1 w-full ${isOffer ? "bg-primary" : "bg-amber-600"}`} />
 
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
@@ -56,8 +56,8 @@ export function PostCard({ post }: { post: PostWithAuthor }) {
               <div className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
                 isOffer
                   ? "bg-primary/10 text-primary"
-                  : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
-              }`}>
+                  : "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+              }`} role="status">
                 {isOffer
                   ? <Gift className="h-3 w-3" />
                   : <Search className="h-3 w-3" />

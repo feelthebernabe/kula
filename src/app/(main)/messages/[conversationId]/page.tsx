@@ -83,12 +83,13 @@ export default async function ConversationPage({
     !existingExchange;
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-8rem)] max-w-2xl flex-col">
+    <div className="mx-auto flex h-[calc(100dvh-8rem)] max-w-2xl flex-col pb-safe">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-border pb-4">
         <Link
           href="/messages"
-          className="text-muted-foreground hover:text-foreground md:hidden"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground md:hidden"
+          aria-label="Back to messages"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>

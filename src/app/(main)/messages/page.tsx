@@ -87,7 +87,7 @@ export default async function MessagesPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${unreadCount > 0 ? "text-foreground" : "text-foreground"}`}>
+                      <p className={`text-sm truncate ${unreadCount > 0 ? "font-semibold text-foreground" : "font-medium text-muted-foreground"}`}>
                         {otherUser?.display_name || "Unknown User"}
                       </p>
                       {conv.post && (

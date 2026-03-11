@@ -171,6 +171,7 @@ export function MessageThread({
         <button
           type="submit"
           disabled={!newMessage.trim() || sending}
+          aria-label="Send message"
           className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
           Send

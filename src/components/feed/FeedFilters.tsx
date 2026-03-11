@@ -26,19 +26,8 @@ import {
 import type { ViewMode } from "./FeedList";
 import type { ExchangeMode } from "@/types/database";
 
-const FIND_EXAMPLES = [
-  "a power drill",
-  "babysitting",
-  "guitar lessons",
-  "moving help",
-];
-
-const SHARE_EXAMPLES = [
-  "home cooking",
-  "garden tools",
-  "your camera",
-  "yoga classes",
-];
+const FIND_PLACEHOLDER = "Find something you need...";
+const SHARE_PLACEHOLDER = "Share something you can offer...";
 
 export function FeedFilters({
   currentCategory,
@@ -64,19 +53,11 @@ export function FeedFilters({
   const [posting, setPosting] = useState(false);
   const [aiKeywords, setAiKeywords] = useState<string[] | null>(null);
   const [parsing, setParsing] = useState(false);
+  const [aiSearchFailed, setAiSearchFailed] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const typingRef = useRef(false);
-  const [findIdx, setFindIdx] = useState(0);
-  const [shareIdx, setShareIdx] = useState(0);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const { setIsOpen: openAskKula } = useAskKula();
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setFindIdx((i) => (i + 1) % FIND_EXAMPLES.length);
-      setShareIdx((i) => (i + 1) % SHARE_EXAMPLES.length);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     // Don't overwrite what the user is actively typing
@@ -98,6 +79,7 @@ export function FeedFilters({
   function handleSearchChange(value: string) {
     setQuery(value);
     setAiKeywords(null);
+    setAiSearchFailed(false);
     typingRef.current = true;
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -130,6 +112,7 @@ export function FeedFilters({
 
     // Natural language: call AI parse endpoint
     setParsing(true);
+    setAiSearchFailed(false);
     try {
       const res = await fetch("/api/search/parse", {
         method: "POST",
@@ -148,7 +131,8 @@ export function FeedFilters({
       if (data.suggestedType) params.set("type", data.suggestedType);
       router.push(`/feed?${params.toString()}`);
     } catch {
-      // Fallback to regular search
+      // Fallback to regular search — show feedback
+      setAiSearchFailed(true);
       const params = new URLSearchParams(searchParams.toString());
       params.set("q", trimmed);
       router.push(`/feed?${params.toString()}`);
@@ -160,10 +144,18 @@ export function FeedFilters({
   function clearSearch() {
     setQuery("");
     setAiKeywords(null);
+    setAiSearchFailed(false);
     const params = new URLSearchParams(searchParams.toString());
     params.delete("q");
     router.push(`/feed?${params.toString()}`);
   }
+
+  // Focus the title input when quick post form expands
+  useEffect(() => {
+    if (showQuickPost) {
+      requestAnimationFrame(() => titleInputRef.current?.focus());
+    }
+  }, [showQuickPost]);
 
   async function handleQuickPost() {
     const trimmed = offerText.trim();
@@ -189,12 +181,21 @@ export function FeedFilters({
         return;
       }
 
+      // RLS requires community_id to be a community the user belongs to
+      const { data: membership } = await supabase
+        .from("community_members")
+        .select("community_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .single();
+
       const { error } = await supabase.from("posts").insert({
         author_id: user.id,
         type: "offer" as const,
         title: trimmed,
         category: quickCategory,
         exchange_modes: quickExchangeModes,
+        community_id: membership?.community_id ?? null,
       });
 
       if (error) throw error;
@@ -212,29 +213,37 @@ export function FeedFilters({
     }
   }
 
+  function toggleExchangeMode(val: ExchangeMode) {
+    setQuickExchangeModes((prev) =>
+      prev.includes(val)
+        ? prev.filter((m) => m !== val)
+        : [...prev, val]
+    );
+  }
+
   return (
     <div className="space-y-3">
       {/* Dual Input — Find & Share */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {/* Find / Search box */}
         <form onSubmit={handleSmartSearch} className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder={`Find ${FIND_EXAMPLES[findIdx % FIND_EXAMPLES.length]}...`}
+            placeholder={FIND_PLACEHOLDER}
             value={query}
             onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Search for something you need"
-            className="w-full rounded-xl border border-border bg-card py-2.5 pl-9 pr-8 text-sm shadow-sm transition-shadow placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full rounded-xl border border-border bg-card py-2.5 pl-9 pr-8 text-sm shadow-sm transition-shadow placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
           {query && !parsing && (
             <button
               type="button"
               onClick={clearSearch}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label="Clear search"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </button>
           )}
         </form>
@@ -244,7 +253,7 @@ export function FeedFilters({
           <Plus className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
           <input
             type="text"
-            placeholder={`Share ${SHARE_EXAMPLES[shareIdx % SHARE_EXAMPLES.length]}...`}
+            placeholder={SHARE_PLACEHOLDER}
             value={offerText}
             onChange={(e) => {
               setOfferText(e.target.value);
@@ -252,7 +261,7 @@ export function FeedFilters({
             }}
             onFocus={() => { if (offerText) setShowQuickPost(true); }}
             aria-label="Share something you can offer"
-            className="w-full rounded-xl border border-primary/30 bg-primary/5 py-2.5 pl-9 pr-3 text-sm shadow-sm transition-shadow placeholder:text-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full rounded-xl border border-primary/40 bg-primary/5 py-2.5 pl-9 pr-3 text-sm shadow-sm transition-shadow placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
       </div>
@@ -265,21 +274,23 @@ export function FeedFilters({
             <button
               type="button"
               onClick={() => { setShowQuickPost(false); setOfferText(""); setQuickCategory(""); setQuickExchangeModes(["flexible"]); }}
-              className="text-muted-foreground hover:text-foreground"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label="Close quick post"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
           <input
+            ref={titleInputRef}
             type="text"
             placeholder="What are you offering?"
             value={offerText}
             onChange={(e) => setOfferText(e.target.value)}
+            aria-label="Offer title"
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
           <Select value={quickCategory} onValueChange={setQuickCategory}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full" aria-label="Category">
               <SelectValue placeholder="Pick a category" />
             </SelectTrigger>
             <SelectContent>
@@ -290,25 +301,25 @@ export function FeedFilters({
               ))}
             </SelectContent>
           </Select>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Exchange modes">
             {EXCHANGE_MODES.map((mode) => {
               const val = mode.value as ExchangeMode;
               const selected = quickExchangeModes.includes(val);
               return (
-                <Badge
+                <button
                   key={mode.value}
-                  variant={selected ? "default" : "outline"}
-                  className={`cursor-pointer text-xs ${selected ? "" : "opacity-60 hover:opacity-100"}`}
-                  onClick={() =>
-                    setQuickExchangeModes((prev) =>
-                      prev.includes(val)
-                        ? prev.filter((m) => m !== val)
-                        : [...prev, val]
-                    )
-                  }
+                  type="button"
+                  role="checkbox"
+                  aria-checked={selected}
+                  onClick={() => toggleExchangeMode(val)}
+                  className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
+                    selected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background text-muted-foreground hover:border-primary hover:text-foreground"
+                  }`}
                 >
                   {mode.label}
-                </Badge>
+                </button>
               );
             })}
           </div>
@@ -347,15 +358,22 @@ export function FeedFilters({
 
       {/* AI Parsing Indicator */}
       {parsing && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
-          <Sparkles className="h-3.5 w-3.5 text-primary" />
+        <div className="flex items-center gap-2 text-xs text-muted-foreground" role="status" aria-live="polite">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
           Understanding your search...
         </div>
       )}
 
+      {/* AI search fallback notice */}
+      {aiSearchFailed && (
+        <p className="text-xs text-muted-foreground" role="status">
+          Smart search unavailable — showing regular results
+        </p>
+      )}
+
       {/* AI Keywords */}
       {aiKeywords && aiKeywords.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5" role="status" aria-label="AI-detected keywords">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           {aiKeywords.map((kw) => (
             <Badge key={kw} variant="secondary" className="text-xs">
@@ -367,11 +385,13 @@ export function FeedFilters({
 
       {/* Type Tabs — equal-weight Offers / Needs */}
       <div className="flex items-center gap-2">
-        <div className="flex flex-1 rounded-xl border border-border bg-muted/40 p-1">
+        <div className="flex flex-1 rounded-xl border border-border bg-muted/40 p-1" role="tablist" aria-label="Filter by type">
           <button
             type="button"
+            role="tab"
+            aria-selected={!currentType}
             onClick={() => setFilter("type", null)}
-            className={`flex-1 rounded-lg py-2 text-center text-sm font-medium transition-all ${
+            className={`flex-1 rounded-lg py-2 text-center text-sm font-medium transition-all focus-visible:outline-2 focus-visible:outline-primary ${
               !currentType
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -381,8 +401,10 @@ export function FeedFilters({
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={currentType === "offer"}
             onClick={() => setFilter("type", currentType === "offer" ? null : "offer")}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-center text-sm font-medium transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-center text-sm font-medium transition-all focus-visible:outline-2 focus-visible:outline-primary ${
               currentType === "offer"
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -393,10 +415,12 @@ export function FeedFilters({
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={currentType === "request"}
             onClick={() => setFilter("type", currentType === "request" ? null : "request")}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-center text-sm font-medium transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-center text-sm font-medium transition-all focus-visible:outline-2 focus-visible:outline-primary ${
               currentType === "request"
-                ? "bg-amber-500 text-white shadow-sm"
+                ? "bg-amber-600 text-white shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -411,8 +435,8 @@ export function FeedFilters({
                 ? `${currentCategory ? "&" : "?"}type=${currentType}`
                 : ""
             }`}
-            className="flex items-center gap-1 rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground transition-colors"
-            title="Map view"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-primary"
+            aria-label="Map view"
           >
             <Map className="h-4 w-4" />
           </Link>
@@ -420,26 +444,26 @@ export function FeedFilters({
             <button
               type="button"
               onClick={() => onViewModeChange("list")}
-              className={`rounded-l-lg p-1.5 ${
+              className={`flex h-9 w-9 items-center justify-center rounded-l-lg transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
                 viewMode === "list"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
-              title="List view"
               aria-label="Switch to list view"
+              aria-pressed={viewMode === "list"}
             >
               <List className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={() => onViewModeChange("grid")}
-              className={`rounded-r-lg p-1.5 ${
+              className={`flex h-9 w-9 items-center justify-center rounded-r-lg transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
                 viewMode === "grid"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
-              title="Grid view"
               aria-label="Switch to grid view"
+              aria-pressed={viewMode === "grid"}
             >
               <LayoutGrid className="h-4 w-4" />
             </button>
@@ -448,7 +472,7 @@ export function FeedFilters({
       </div>
 
       {/* Category Filter — collapsed with "+ More" */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by category">
         {currentCategory ? (
           <Badge
             variant="secondary"

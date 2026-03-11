@@ -21,7 +21,7 @@ export function Sidebar() {
 
   return (
     <aside className="hidden w-56 shrink-0 md:block">
-      <nav className="sticky top-20 space-y-1">
+      <nav aria-label="Main navigation" className="sticky top-20 space-y-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const isActive =
             pathname === href || pathname.startsWith(href + "/");
@@ -30,7 +30,8 @@ export function Sidebar() {
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              aria-current={isActive ? "page" : undefined}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"

@@ -48,6 +48,7 @@ export function FeedList({
     initialPosts as PostWithAuthor[]
   );
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [hasMore, setHasMore] = useState(initialPosts.length >= PAGE_SIZE);
   const observerRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
@@ -62,59 +63,67 @@ export function FeedList({
     if (loading || !hasMore) return;
 
     setLoading(true);
+    setError(false);
     const lastPost = posts[posts.length - 1];
     if (!lastPost) {
       setLoading(false);
       return;
     }
 
-    let newPosts: PostWithAuthor[] = [];
+    try {
+      let newPosts: PostWithAuthor[] = [];
 
-    if (searchQuery) {
-      // Use search RPC for pagination
-      const { data } = await supabase.rpc("search_posts", {
-        search_query: searchQuery,
-        filter_category: category ?? undefined,
-        filter_type: type ?? undefined,
-        result_limit: PAGE_SIZE,
-        cursor_created_at: lastPost.created_at ?? undefined,
-      });
+      if (searchQuery) {
+        // Use search RPC for pagination
+        const { data, error: rpcError } = await supabase.rpc("search_posts", {
+          search_query: searchQuery,
+          filter_category: category ?? undefined,
+          filter_type: type ?? undefined,
+          result_limit: PAGE_SIZE,
+          cursor_created_at: lastPost.created_at ?? undefined,
+        });
 
-      newPosts = (data ?? []).map(transformRpcResult);
-    } else {
-      // Standard query pagination
-      let query = supabase
-        .from("posts")
-        .select(
+        if (rpcError) throw rpcError;
+        newPosts = (data ?? []).map(transformRpcResult);
+      } else {
+        // Standard query pagination
+        let query = supabase
+          .from("posts")
+          .select(
+            `
+            *,
+            author:profiles!author_id(id, display_name, avatar_url, trust_score),
+            community:communities!community_id(id, name)
           `
-          *,
-          author:profiles!author_id(id, display_name, avatar_url, trust_score),
-          community:communities!community_id(id, name)
-        `
-        )
-        .eq("status", "active")
-        .is("removed_by_mod", null)
-        .lt("created_at", lastPost.created_at)
-        .order("created_at", { ascending: false })
-        .limit(PAGE_SIZE);
+          )
+          .eq("status", "active")
+          .is("removed_by_mod", null)
+          .lt("created_at", lastPost.created_at)
+          .order("created_at", { ascending: false })
+          .limit(PAGE_SIZE);
 
-      if (category) {
-        query = query.eq("category", category);
+        if (category) {
+          query = query.eq("category", category);
+        }
+        if (type) {
+          query = query.eq("type", type as "offer" | "request");
+        }
+
+        const { data, error: queryError } = await query;
+        if (queryError) throw queryError;
+        newPosts = (data ?? []) as unknown as PostWithAuthor[];
       }
-      if (type) {
-        query = query.eq("type", type as "offer" | "request");
+
+      if (newPosts.length < PAGE_SIZE) {
+        setHasMore(false);
       }
 
-      const { data } = await query;
-      newPosts = (data ?? []) as unknown as PostWithAuthor[];
+      setPosts((prev) => [...prev, ...newPosts]);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
     }
-
-    if (newPosts.length < PAGE_SIZE) {
-      setHasMore(false);
-    }
-
-    setPosts((prev) => [...prev, ...newPosts]);
-    setLoading(false);
   }, [loading, hasMore, posts, supabase, category, type, searchQuery]);
 
   // Intersection Observer for infinite scroll
@@ -160,7 +169,7 @@ export function FeedList({
       )}
 
       {viewMode === "grid" ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
           {posts.map((post) => (
             <PostCardGrid key={post.id} post={post} />
           ))}
@@ -180,14 +189,27 @@ export function FeedList({
       )}
 
       {loading && (
-        <div className={viewMode === "grid" ? "mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3" : "mt-6 space-y-6"}>
+        <div className={viewMode === "grid" ? "mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4" : "mt-6 space-y-6"}>
           <PostCardSkeleton />
           <PostCardSkeleton />
           {viewMode === "grid" && <PostCardSkeleton />}
         </div>
       )}
 
-      {hasMore && <div ref={observerRef} className="h-4" />}
+      {error && (
+        <div className="py-6 text-center">
+          <p className="text-sm text-destructive">Failed to load more posts</p>
+          <button
+            type="button"
+            onClick={() => { setError(false); loadMore(); }}
+            className="mt-2 text-sm font-medium text-primary hover:underline"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {hasMore && !error && <div ref={observerRef} className="h-4" />}
 
       {!hasMore && posts.length > PAGE_SIZE && (
         <p className="py-4 text-center text-sm text-muted-foreground">

@@ -121,7 +121,7 @@ export function NotificationBell({ userId, initialCount }: NotificationBellProps
           </span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
+      <DropdownMenuContent align="end" className="w-[min(20rem,calc(100vw-2rem))]">
         {notifications.length > 0 ? (
           notifications.map((notif) => {
             const Icon = getNotificationIcon(notif.type);

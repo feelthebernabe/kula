@@ -143,7 +143,7 @@ export default function SettingsPage() {
     setList(list.filter((item) => item !== value));
   }
 
-  async function handleSave() {
+  async function handleSaveAll() {
     setSaving(true);
 
     const {
@@ -155,31 +155,6 @@ export default function SettingsPage() {
       setSaving(false);
       return;
     }
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        display_name: displayName.trim(),
-        bio: bio.trim() || null,
-        primary_location: location.trim() || null,
-        skills,
-        offers_list: offersList,
-        needs_list: needsList,
-      })
-      .eq("id", user.id);
-
-    if (error) {
-      toast.error("Failed to save: " + error.message);
-    } else {
-      toast.success("Profile updated!");
-      router.refresh();
-    }
-    setSaving(false);
-  }
-
-  async function handleSaveVerification() {
-    if (savingVerification || !userId) return;
-    setSavingVerification(true);
 
     // Build verification methods list
     const methods: string[] = ["email"]; // email always verified via signup
@@ -198,20 +173,26 @@ export default function SettingsPage() {
     const { error } = await supabase
       .from("profiles")
       .update({
+        display_name: displayName.trim(),
+        bio: bio.trim() || null,
+        primary_location: location.trim() || null,
+        skills,
+        offers_list: offersList,
+        needs_list: needsList,
         phone: phone.trim() || null,
         social_links: cleanLinks,
         verification_methods: methods,
       })
-      .eq("id", userId);
+      .eq("id", user.id);
 
     if (error) {
       toast.error("Failed to save: " + error.message);
     } else {
       setVerificationMethods(methods);
-      toast.success("Verification updated!");
+      toast.success("Settings saved!");
       router.refresh();
     }
-    setSavingVerification(false);
+    setSaving(false);
   }
 
   async function handleSignOut() {
@@ -411,14 +392,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={loadProfile} disabled={saving}>
-          Cancel
-        </Button>
-        <Button onClick={handleSave} disabled={saving} className="flex-1">
-          {saving ? "Saving..." : "Save Changes"}
-        </Button>
-      </div>
+      {/* Save button moved to bottom of page */}
 
       <Card>
         <CardHeader>
@@ -566,16 +540,17 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <Button
-            onClick={handleSaveVerification}
-            disabled={savingVerification}
-            className="w-full"
-            size="sm"
-          >
-            {savingVerification ? "Saving..." : "Save Verification Info"}
-          </Button>
         </CardContent>
       </Card>
+
+      <div className="flex gap-3">
+        <Button variant="outline" onClick={loadProfile} disabled={saving}>
+          Cancel
+        </Button>
+        <Button onClick={handleSaveAll} disabled={saving} className="flex-1">
+          {saving ? "Saving..." : "Save All Changes"}
+        </Button>
+      </div>
 
       <Separator />
 

@@ -59,7 +59,7 @@ export default async function NotificationsPage() {
               <Link key={notification.id} href={href}>
                 <Card
                   className={`transition-colors hover:bg-accent/50 ${
-                    !wasUnread && notification.read ? "opacity-70" : ""
+                    !wasUnread && notification.read ? "opacity-60" : "border-primary/20"
                   }`}
                 >
                   <CardContent className="flex items-start gap-3 py-4">
@@ -80,7 +80,7 @@ export default async function NotificationsPage() {
                       </p>
                     </div>
                     {wasUnread && (
-                      <div className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                      <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" aria-label="Unread" />
                     )}
                   </CardContent>
                 </Card>

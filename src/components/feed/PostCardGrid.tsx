@@ -39,11 +39,11 @@ export function PostCardGrid({ post }: { post: PostWithAuthor }) {
   const category = CATEGORIES.find((c) => c.value === post.category);
   const CategoryIcon = category ? ICON_MAP[category.icon] || Home : Home;
   const hasImage = post.images && post.images.length > 0;
-  const topMode = post.exchange_modes[0];
+  const topMode = (post.exchange_modes ?? [])[0];
   const modeInfo = EXCHANGE_MODES.find((m) => m.value === topMode);
 
   return (
-    <Link href={`/posts/${post.id}`} className="group">
+    <Link href={`/posts/${post.id}`} className="group block rounded-xl focus-visible:outline-2 focus-visible:outline-primary">
       <div className="relative aspect-square overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-md">
         {/* Image or Category Placeholder */}
         {hasImage ? (
@@ -75,8 +75,8 @@ export function PostCardGrid({ post }: { post: PostWithAuthor }) {
         <div className={`absolute left-2 top-2 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm backdrop-blur-sm ${
           post.type === "offer"
             ? "bg-primary/90 text-primary-foreground"
-            : "bg-amber-400/90 text-amber-950"
-        }`}>
+            : "bg-amber-600/90 text-white"
+        }`} role="status">
           {post.type === "offer"
             ? <Gift className="h-2.5 w-2.5" />
             : <Search className="h-2.5 w-2.5" />
