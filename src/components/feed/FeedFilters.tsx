@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, X, Sparkles, LayoutGrid, List, Map, ChevronDown, Gift, HandHeart, Plus, Loader2 } from "lucide-react";
+import { Search, X, Sparkles, LayoutGrid, List, Map, ChevronDown, Gift, HandHeart, Loader2 } from "lucide-react";
 import { CATEGORIES } from "@/lib/constants/categories";
 import { EXCHANGE_MODES } from "@/lib/constants/exchange-modes";
 import { useAskKula } from "@/lib/contexts/AskKulaContext";
@@ -250,7 +250,7 @@ export function FeedFilters({
 
         {/* Share / Offer box */}
         <div className="relative">
-          <Plus className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
+          <HandHeart className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
           <input
             type="text"
             placeholder={SHARE_PLACEHOLDER}

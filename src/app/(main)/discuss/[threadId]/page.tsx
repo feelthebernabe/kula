@@ -30,6 +30,7 @@ export default async function ThreadDetailPage({
       "*, author:profiles!author_id(id, display_name, avatar_url), community:communities!community_id(id, name)"
     )
     .eq("id", threadId)
+    .is("removed_by_mod", null)
     .single();
 
   if (!thread) notFound();

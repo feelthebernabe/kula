@@ -140,7 +140,8 @@ export function useChat() {
       setIsLoading(false);
       abortRef.current = null;
     }
-  }, [messages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const clearMessages = useCallback(() => {
     setMessages([]);

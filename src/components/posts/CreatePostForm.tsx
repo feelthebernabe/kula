@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ interface CreatePostFormProps {
 
 export function CreatePostForm({ communities, defaultCommunityId, defaultType, defaultTitle, defaultCategory, pendingReviews = 0 }: CreatePostFormProps) {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // Anti-gaming: block posting if 3+ pending reviews
   if (pendingReviews >= 3) {

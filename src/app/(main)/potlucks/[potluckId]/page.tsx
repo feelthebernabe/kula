@@ -78,6 +78,7 @@ export default async function PotluckDetailPage({
       "*, author:profiles!author_id(id, display_name, avatar_url, trust_score)"
     )
     .eq("potluck_id", potluckId)
+    .is("removed_by_mod", null)
     .order("created_at");
 
   const comments = (rawComments ?? []) as unknown as PotluckCommentWithAuthor[];

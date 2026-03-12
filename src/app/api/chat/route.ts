@@ -270,6 +270,22 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // Server-side validation: enforce 500 char limit and valid roles
+  for (const msg of messages) {
+    if (typeof msg.content !== "string" || msg.content.length > 500) {
+      return new Response(JSON.stringify({ error: "Message too long (max 500 chars)" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (msg.role !== "user" && msg.role !== "assistant") {
+      return new Response(JSON.stringify({ error: "Invalid message role" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {

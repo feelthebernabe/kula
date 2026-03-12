@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     .from("posts")
     .select("id, title, category, type, exchange_modes")
     .eq("status", "active")
+    .is("removed_by_mod", null)
     .or(`title.ilike.%${sanitized}%,body.ilike.%${sanitized}%`)
     .order("created_at", { ascending: false })
     .limit(3);

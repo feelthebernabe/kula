@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PILOT_COMMUNITY_ID } from "@/lib/constants/pilot-community";
@@ -34,7 +34,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // Redirect already-onboarded users back to feed
   useEffect(() => {
@@ -51,7 +51,8 @@ export default function OnboardingPage() {
       }
     }
     checkOnboarding();
-  }, [supabase, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Step 1: Location
   const [location, setLocation] = useState("");

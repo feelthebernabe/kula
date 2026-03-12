@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ interface EditPostFormProps {
 
 export function EditPostForm({ post, communities }: EditPostFormProps) {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(false);
 
   const [postType, setPostType] = useState<PostType>(post.type as PostType);

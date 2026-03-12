@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ImagePlus, X } from "lucide-react";
@@ -22,7 +22,7 @@ export function ImageUploader({
   onChange,
 }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const handleUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
