@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getGeminiClient } from "@/lib/gemini";
 import { CATEGORIES } from "@/lib/constants/categories";
+import { AI_ENABLED } from "@/lib/flags";
 
 export async function POST(request: NextRequest) {
+  if (!AI_ENABLED) {
+    return NextResponse.json({ error: "AI features are temporarily disabled." }, { status: 503 });
+  }
   const supabase = await createClient();
   const {
     data: { user },

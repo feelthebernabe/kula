@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getGeminiClient } from "@/lib/gemini";
 import { CATEGORIES } from "@/lib/constants/categories";
+import { AI_ENABLED } from "@/lib/flags";
 import type { ChatPost } from "@/types/chat";
 import type {
   Content,
@@ -258,6 +259,13 @@ export async function POST(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (!AI_ENABLED) {
+    return new Response(JSON.stringify({ error: "AI features are temporarily disabled." }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {

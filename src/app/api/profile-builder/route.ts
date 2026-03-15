@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getGeminiClient } from "@/lib/gemini";
+import { AI_ENABLED } from "@/lib/flags";
 import type { Content, FunctionDeclaration, Part, Type } from "@google/genai";
 
 // In-memory rate limit: 20 req / 5 min per user
@@ -194,6 +195,13 @@ const generateSkillTool: FunctionDeclaration = {
 };
 
 export async function POST(request: NextRequest) {
+  if (!AI_ENABLED) {
+    return new Response(JSON.stringify({ error: "AI features are temporarily disabled." }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

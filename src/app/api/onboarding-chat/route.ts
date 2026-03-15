@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getGeminiClient } from "@/lib/gemini";
 import { CATEGORIES } from "@/lib/constants/categories";
+import { AI_ENABLED } from "@/lib/flags";
 import type { ChatPost } from "@/types/chat";
 import type { Content, FunctionDeclaration, Part, Type } from "@google/genai";
 
@@ -251,6 +252,13 @@ async function executeToolCall(
 }
 
 export async function POST(request: NextRequest) {
+  if (!AI_ENABLED) {
+    return new Response(JSON.stringify({ error: "AI features are temporarily disabled." }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-real-ip") ||
