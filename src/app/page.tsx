@@ -97,19 +97,25 @@ export default async function LandingPage() {
 
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
-              href="/signup"
+              href="/onboarding-chat"
               className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
             >
-              Get Started
+              Discover Kula with AI
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              href="/browse"
+              href="/signup"
               className="rounded-lg border border-border px-6 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
-              Browse the feed
+              Create account
             </Link>
           </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Chat with our AI guide to explore the community before signing up — or{" "}
+            <Link href="/browse" className="underline underline-offset-2 hover:text-foreground">
+              browse the feed
+            </Link>
+          </p>
 
           {/* Social proof — only show when meaningful */}
           {showSocialProof && (
