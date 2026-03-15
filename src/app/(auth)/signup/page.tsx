@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 export default function SignupPage() {
@@ -70,6 +71,21 @@ export default function SignupPage() {
           Create your account and start sharing with your community
         </CardDescription>
       </CardHeader>
+      <div className="px-6 pb-2 pt-0">
+        <Link
+          href="/onboarding-chat"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+        >
+          <span>✨</span>
+          Discover Kula with AI first — no account needed
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+        <div className="my-4 flex items-center gap-3">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted-foreground">or sign up directly</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+      </div>
       <form onSubmit={handleSignup}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
