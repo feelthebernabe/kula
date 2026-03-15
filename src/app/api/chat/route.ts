@@ -117,12 +117,16 @@ async function executeToolCall(
   const admin = createAdminClient();
 
   if (name === "search_posts") {
-    const { data } = await admin.rpc("search_posts", {
+    const { data, error } = await admin.rpc("search_posts", {
       search_query: args.keywords as string,
-      filter_category: (args.category as string) || undefined,
-      filter_type: (args.type as string) || undefined,
+      filter_category: (args.category as string) || null,
+      filter_type: (args.type as string) || null,
       result_limit: (args.limit as number) || 5,
     });
+    if (error) {
+      console.error("[chat] search_posts RPC error:", error);
+      return { posts: [], raw: { error: error.message } };
+    }
 
     const posts: ChatPost[] = (data || []).map((p: Record<string, unknown>) => ({
       id: p.id as string,
@@ -154,7 +158,7 @@ async function executeToolCall(
   }
 
   if (name === "get_post_details") {
-    const { data } = await admin
+    const { data, error } = await admin
       .from("posts")
       .select(
         `*, author:profiles!author_id(id, display_name, avatar_url, trust_score, bio, skills)`
@@ -162,6 +166,10 @@ async function executeToolCall(
       .eq("id", args.post_id as string)
       .single();
 
+    if (error) {
+      console.error("[chat] get_post_details error:", error);
+      return { posts: [], raw: { error: error.message } };
+    }
     if (!data) return { posts: [], raw: { error: "Post not found" } };
 
     const author = data.author as Record<string, unknown> | null;
@@ -205,7 +213,11 @@ async function executeToolCall(
       query = query.eq("type", args.type as "offer" | "request");
     }
 
-    const { data } = await query;
+    const { data, error } = await query;
+    if (error) {
+      console.error("[chat] browse_category error:", error);
+      return { posts: [], raw: { error: error.message } };
+    }
 
     const posts: ChatPost[] = (data || []).map((p: Record<string, unknown>) => {
       const author = p.author as Record<string, unknown> | null;
