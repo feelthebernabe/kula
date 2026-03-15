@@ -119,8 +119,8 @@ async function executeToolCall(
   if (name === "search_posts") {
     const { data, error } = await admin.rpc("search_posts", {
       search_query: args.keywords as string,
-      filter_category: (args.category as string) || null,
-      filter_type: (args.type as string) || null,
+      filter_category: (args.category as string) || undefined,
+      filter_type: (args.type as string) || undefined,
       result_limit: (args.limit as number) || 5,
     });
     if (error) {
