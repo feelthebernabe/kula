@@ -36,12 +36,12 @@ jobs:
       - name: Sync env vars to Vercel project
         run: |
           set_env() {
-            curl -sf -X POST \
-              "https://api.vercel.com/v10/projects/${{ secrets.VERCEL_PROJECT_ID }}/env?upsert=true" \
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+              "https://api.vercel.com/v10/projects/${{ secrets.VERCEL_PROJECT_ID }}/env?upsert=true&teamId=${{ secrets.VERCEL_ORG_ID }}" \
               -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
               -H "Content-Type: application/json" \
-              -d "{\"key\":\"$1\",\"value\":\"$2\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}" \
-              > /dev/null && echo "Set $1" || echo "Failed to set $1"
+              -d "{\"key\":\"$1\",\"value\":\"$2\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}")
+            echo "Set $1 → HTTP $STATUS"
           }
           set_env "GROQ_API_KEY"                  "${{ secrets.GROQ_API_KEY }}"
           set_env "HF_API_KEY"                    "${{ secrets.HF_API_KEY }}"
