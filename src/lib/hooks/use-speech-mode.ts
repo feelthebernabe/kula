@@ -158,31 +158,48 @@ export function useSpeechMode(onSend: (text: string) => void) {
       }, 350);
     };
 
+    // Fallback: native browser TTS (always available, zero latency)
+    const speakNative = () => {
+      if (typeof window === "undefined") { onDone(); return; }
+      const synth = window.speechSynthesis;
+      if (!synth) { onDone(); return; }
+      synth.cancel();
+      const utt = new SpeechSynthesisUtterance(clean);
+      utt.rate = 1.05;
+      utt.onend = onDone;
+      utt.onerror = onDone;
+      synth.speak(utt);
+    };
+
+    // Try Kokoro via HF first; fall back to native on any error/timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8s max
+
     fetch("/api/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: clean }),
+      signal: controller.signal,
     })
       .then((res) => {
+        clearTimeout(timeout);
         if (!res.ok) throw new Error("TTS failed");
         return res.blob();
       })
       .then((blob) => {
-        if (!enabledRef.current) return; // disabled while fetching
+        if (!enabledRef.current) return;
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         audioRef.current = audio;
-        audio.onended = () => {
-          URL.revokeObjectURL(url);
-          onDone();
-        };
-        audio.onerror = () => {
-          URL.revokeObjectURL(url);
-          onDone();
-        };
-        audio.play().catch(onDone);
+        audio.onended = () => { URL.revokeObjectURL(url); onDone(); };
+        audio.onerror = () => { URL.revokeObjectURL(url); speakNative(); };
+        audio.play().catch(() => { URL.revokeObjectURL(url); speakNative(); });
       })
-      .catch(onDone);
+      .catch(() => {
+        clearTimeout(timeout);
+        if (enabledRef.current) speakNative();
+        else onDone();
+      });
   };
 
   const enable = useCallback(() => {
