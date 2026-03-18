@@ -271,15 +271,32 @@ export async function POST(request: NextRequest) {
         while (loopCount < 6) {
           loopCount++;
 
-          const groqStream = await client.chat.completions.create({
-            model: "llama-3.3-70b-versatile",
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            messages: groqMessages as any,
-            tools,
-            tool_choice: "auto",
-            parallel_tool_calls: false,
-            stream: true,
-          });
+          let groqStream;
+          try {
+            groqStream = await client.chat.completions.create({
+              model: "llama-3.3-70b-versatile",
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              messages: groqMessages as any,
+              tools,
+              tool_choice: "auto",
+              parallel_tool_calls: false,
+              stream: true,
+            });
+          } catch (toolErr) {
+            // Groq failed_generation: model couldn't produce a valid tool call.
+            // Retry without tools so the conversation continues as plain text.
+            const msg = toolErr instanceof Error ? toolErr.message : String(toolErr);
+            if (msg.includes("failed_generation") || msg.includes("Failed to call a function")) {
+              groqStream = await client.chat.completions.create({
+                model: "llama-3.3-70b-versatile",
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                messages: groqMessages as any,
+                stream: true,
+              });
+            } else {
+              throw toolErr;
+            }
+          }
 
           let fullText = "";
           const toolCallAccumulator: Record<
