@@ -14,38 +14,52 @@ import {
 } from "lucide-react";
 
 export default async function LandingPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    redirect("/feed");
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    let isAuthenticated = false;
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      isAuthenticated = !!user;
+    } catch {
+      // Supabase error — treat as unauthenticated
+    }
+    if (isAuthenticated) {
+      redirect("/feed");
+    }
   }
 
   // Fetch live platform stats (admin client bypasses RLS for aggregate counts)
-  const admin = createAdminClient();
-  const [usersResult, exchangesResult, ratingsResult] = await Promise.all([
-    admin
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("onboarding_completed", true),
-    admin
-      .from("exchange_agreements")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "completed"),
-    admin.from("reviews").select("rating"),
-  ]);
+  let userCount = 0;
+  let exchangeCount = 0;
+  let avgRating = "5.0";
+  let ratingsCount = 0;
 
-  const userCount = usersResult.count ?? 0;
-  const exchangeCount = exchangesResult.count ?? 0;
-  const avgRating =
-    ratingsResult.data && ratingsResult.data.length > 0
-      ? (
-          ratingsResult.data.reduce((sum, r) => sum + (r.rating as number), 0) /
-          ratingsResult.data.length
-        ).toFixed(1)
-      : "5.0";
+  try {
+    const admin = createAdminClient();
+    const [usersResult, exchangesResult, ratingsResult] = await Promise.all([
+      admin
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("onboarding_completed", true),
+      admin
+        .from("exchange_agreements")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "completed"),
+      admin.from("reviews").select("rating"),
+    ]);
+
+    userCount = usersResult.count ?? 0;
+    exchangeCount = exchangesResult.count ?? 0;
+    ratingsCount = ratingsResult.data?.length ?? 0;
+    if (ratingsResult.data && ratingsResult.data.length > 0) {
+      avgRating = (
+        ratingsResult.data.reduce((sum, r) => sum + (r.rating as number), 0) /
+        ratingsResult.data.length
+      ).toFixed(1);
+    }
+  } catch {
+    // Stats unavailable — page still renders
+  }
 
   // Only show social proof if there are meaningful numbers
   const showSocialProof = userCount >= 5 || exchangeCount >= 1;
@@ -132,7 +146,7 @@ export default async function LandingPage() {
                   <span>{exchangeCount}+ exchanges completed</span>
                 </div>
               )}
-              {ratingsResult.data && ratingsResult.data.length >= 3 && (
+              {ratingsCount >= 3 && (
                 <div className="flex items-center gap-1.5">
                   <Star className="h-4 w-4 text-primary" />
                   <span>{avgRating} avg trust rating</span>
