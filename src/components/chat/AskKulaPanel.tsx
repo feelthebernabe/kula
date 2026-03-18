@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import {
   Sheet,
   SheetContent,
@@ -9,10 +10,12 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sparkles, Trash2 } from "lucide-react";
+import { Mic, SendHorizonal, Sparkles, Trash2 } from "lucide-react";
 import { ChatMessages } from "./ChatMessages";
 import { ChatInput } from "./ChatInput";
 import { useChat } from "@/lib/hooks/use-chat";
+import { useSpeechMode } from "@/lib/hooks/use-speech-mode";
+import type { ChatMessage } from "@/types/chat";
 
 const SUGGESTIONS = [
   "Who can help me move this weekend?",
@@ -29,6 +32,30 @@ export function AskKulaPanel({
   onOpenChange: (open: boolean) => void;
 }) {
   const { messages, isLoading, sendMessage, clearMessages } = useChat();
+
+  const speech = useSpeechMode(sendMessage);
+  const prevMessagesRef = useRef<ChatMessage[]>([]);
+
+  // Speak each newly completed assistant message
+  useEffect(() => {
+    const prev = prevMessagesRef.current;
+    prevMessagesRef.current = messages;
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const prevMsg = prev[i];
+      if (
+        msg.role === "assistant" &&
+        !msg.isStreaming &&
+        prevMsg?.role === "assistant" &&
+        prevMsg.isStreaming &&
+        msg.content
+      ) {
+        speech.speak(msg.content);
+      }
+    }
+  }, [messages, speech]);
+
+  const hasFirstReply = messages.some((m) => m.role === "assistant" && !m.isStreaming && m.content);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -98,9 +125,72 @@ export function AskKulaPanel({
           )}
         </div>
 
+        {/* Speech mode bar */}
+        {hasFirstReply && (
+          speech.enabled ? (
+            <div className={`shrink-0 flex items-center justify-between gap-3 border-t px-4 py-3 transition-colors ${
+              speech.isListening ? "border-red-200 bg-red-50 dark:bg-red-950/20" : "border-border/40"
+            }`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                  speech.isListening
+                    ? "animate-pulse bg-red-500 text-white shadow-md shadow-red-200"
+                    : speech.isSpeaking
+                    ? "bg-primary/20 text-primary"
+                    : "bg-primary/10 text-primary"
+                }`}>
+                  <Mic className="h-4 w-4" />
+                </div>
+                <span className="truncate text-sm text-muted-foreground">
+                  {speech.isListening
+                    ? speech.transcript || "Listening…"
+                    : speech.isSpeaking
+                    ? "Speaking…"
+                    : "Voice mode on"}
+                </span>
+              </div>
+              <button onClick={speech.disable} className="shrink-0 text-xs text-muted-foreground hover:text-foreground">
+                Turn off
+              </button>
+            </div>
+          ) : (
+            <div className="shrink-0 flex justify-center border-t border-border/40 py-3">
+              <button
+                onClick={speech.enable}
+                className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-5 py-3 transition-all hover:bg-primary/10 active:scale-[0.98]"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                  <Mic className="h-5 w-5" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-foreground">Tap to talk</p>
+                  <p className="text-xs text-muted-foreground">Hands-free voice mode</p>
+                </div>
+              </button>
+            </div>
+          )
+        )}
+
         {/* Footer */}
         <div className="border-t px-4 py-3">
-          <ChatInput onSend={sendMessage} disabled={isLoading} />
+          {speech.transcript && (
+            <p className="mb-2 rounded-lg bg-muted px-3 py-1.5 text-sm text-muted-foreground">
+              {speech.transcript}
+            </p>
+          )}
+          <div className="flex items-end gap-2">
+            <ChatInput onSend={sendMessage} disabled={isLoading} />
+            {speech.enabled && !speech.isListening && !speech.isSpeaking && (
+              <Button
+                size="icon"
+                onClick={speech.enable}
+                className="h-9 w-9 shrink-0 bg-primary/10 text-primary hover:bg-primary/20"
+                aria-label="Resume listening"
+              >
+                <SendHorizonal className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </SheetContent>
     </Sheet>

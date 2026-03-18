@@ -1,16 +1,10 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getGeminiClient } from "@/lib/gemini";
+import { getGroqClient } from "@/lib/groq";
 import { CATEGORIES } from "@/lib/constants/categories";
 import { AI_ENABLED } from "@/lib/flags";
 import type { ChatPost } from "@/types/chat";
-import type {
-  Content,
-  FunctionDeclaration,
-  Part,
-  Type,
-} from "@google/genai";
 
 // Simple in-memory rate limiter: max 10 requests per user per minute
 const rateLimitMap = new Map<string, number[]>();
@@ -42,71 +36,66 @@ Do NOT make up posts or information. Only reference actual search results.`;
 
 const categoryEnum = CATEGORIES.map((c) => c.value);
 
-const tools: FunctionDeclaration[] = [
+const tools = [
   {
-    name: "search_posts",
-    description:
-      "Search community posts by keywords. Use this to find offers or requests matching what the user is looking for.",
-    parameters: {
-      type: "OBJECT" as Type,
-      properties: {
-        keywords: {
-          type: "STRING" as Type,
-          description: "Search keywords",
+    type: "function" as const,
+    function: {
+      name: "search_posts",
+      description:
+        "Search community posts by keywords. Use this to find offers or requests matching what the user is looking for.",
+      parameters: {
+        type: "object",
+        properties: {
+          keywords: { type: "string", description: "Search keywords" },
+          category: {
+            type: "string",
+            description: `Optional category filter. One of: ${categoryEnum.join(", ")}`,
+          },
+          type: {
+            type: "string",
+            description:
+              'Optional type filter: "offer" or "request". Use "offer" when user is LOOKING FOR something, "request" when user WANTS TO HELP with something.',
+          },
         },
-        category: {
-          type: "STRING" as Type,
-          description: `Optional category filter. One of: ${categoryEnum.join(", ")}`,
-        },
-        type: {
-          type: "STRING" as Type,
-          description:
-            'Optional type filter: "offer" or "request". Use "offer" when user is LOOKING FOR something, "request" when user WANTS TO HELP with something.',
-        },
-        limit: {
-          type: "NUMBER" as Type,
-          description: "Max results to return (default 5)",
-        },
+        required: ["keywords"],
       },
-      required: ["keywords"],
     },
   },
   {
-    name: "get_post_details",
-    description:
-      "Get full details of a specific post including the author's bio and skills.",
-    parameters: {
-      type: "OBJECT" as Type,
-      properties: {
-        post_id: {
-          type: "STRING" as Type,
-          description: "The post ID to look up",
+    type: "function" as const,
+    function: {
+      name: "get_post_details",
+      description:
+        "Get full details of a specific post including the author's bio and skills.",
+      parameters: {
+        type: "object",
+        properties: {
+          post_id: { type: "string", description: "The post ID to look up" },
         },
+        required: ["post_id"],
       },
-      required: ["post_id"],
     },
   },
   {
-    name: "browse_category",
-    description:
-      "Browse all active posts in a specific category. Good for exploring what's available.",
-    parameters: {
-      type: "OBJECT" as Type,
-      properties: {
-        category: {
-          type: "STRING" as Type,
-          description: `Category to browse. One of: ${categoryEnum.join(", ")}`,
+    type: "function" as const,
+    function: {
+      name: "browse_category",
+      description:
+        "Browse all active posts in a specific category. Good for exploring what's available.",
+      parameters: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            description: `Category to browse. One of: ${categoryEnum.join(", ")}`,
+          },
+          type: {
+            type: "string",
+            description: 'Optional: "offer" or "request"',
+          },
         },
-        type: {
-          type: "STRING" as Type,
-          description: 'Optional: "offer" or "request"',
-        },
-        limit: {
-          type: "NUMBER" as Type,
-          description: "Max results (default 5)",
-        },
+        required: ["category"],
       },
-      required: ["category"],
     },
   },
 ];
@@ -122,7 +111,7 @@ async function executeToolCall(
       search_query: args.keywords as string,
       filter_category: (args.category as string) || undefined,
       filter_type: (args.type as string) || undefined,
-      result_limit: (args.limit as number) || 5,
+      result_limit: Number(args.limit) || 5,
     });
     if (error) {
       console.error("[chat] search_posts RPC error:", error);
@@ -208,7 +197,7 @@ async function executeToolCall(
       .eq("category", args.category as string)
       .eq("status", "active")
       .order("created_at", { ascending: false })
-      .limit((args.limit as number) || 5);
+      .limit(Number(args.limit) || 5);
 
     if (args.type) {
       query = query.eq("type", args.type as "offer" | "request");
@@ -253,6 +242,17 @@ async function executeToolCall(
 
   return { posts: [], raw: { error: "Unknown tool" } };
 }
+
+type GroqMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | null;
+  tool_calls?: Array<{
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string };
+  }>;
+  tool_call_id?: string;
+};
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -316,105 +316,121 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const client = getGeminiClient();
+        const client = getGroqClient();
 
-        // Build Gemini contents from message history
-        const contents: Content[] = messages.map(
-          (m: { role: string; content: string }) => ({
-            role: m.role === "user" ? "user" : "model",
-            parts: [{ text: m.content }] as Part[],
-          })
-        );
+        const groqMessages: GroqMessage[] = [
+          { role: "system", content: SYSTEM_INSTRUCTION },
+          ...messages.map((m: { role: string; content: string }) => ({
+            role: (m.role === "user" ? "user" : "assistant") as "user" | "assistant",
+            content: m.content,
+          })),
+        ];
 
-        // Agentic loop: keep calling until no more function calls
         let loopCount = 0;
         const maxLoops = 5;
 
         while (loopCount < maxLoops) {
           loopCount++;
 
-          const response = await client.models.generateContentStream({
-            model: "gemini-2.5-flash",
-            contents,
-            config: {
-              systemInstruction: SYSTEM_INSTRUCTION,
-              tools: [{ functionDeclarations: tools }],
-            },
+          const groqStream = await client.chat.completions.create({
+            model: "llama-3.3-70b-versatile",
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            messages: groqMessages as any,
+            tools,
+            tool_choice: "auto",
+            parallel_tool_calls: false,
+            stream: true,
           });
 
           let fullText = "";
-          let functionCalls: { name: string; args: Record<string, unknown> }[] =
-            [];
+          const toolCallAccumulator: Record<
+            number,
+            { id: string; name: string; arguments: string }
+          > = {};
 
-          for await (const chunk of response) {
-            // Handle text parts
-            if (chunk.text) {
-              fullText += chunk.text;
-              send({ type: "text", content: chunk.text });
+          for await (const chunk of groqStream) {
+            const delta = chunk.choices[0]?.delta;
+
+            if (delta?.content) {
+              fullText += delta.content;
+              send({ type: "text", content: delta.content });
             }
 
-            // Handle function calls
-            if (chunk.candidates?.[0]?.content?.parts) {
-              for (const part of chunk.candidates[0].content.parts) {
-                if (part.functionCall) {
-                  functionCalls.push({
-                    name: part.functionCall.name!,
-                    args: (part.functionCall.args as Record<string, unknown>) || {},
-                  });
+            if (delta?.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const idx = tc.index;
+                if (!toolCallAccumulator[idx]) {
+                  toolCallAccumulator[idx] = { id: "", name: "", arguments: "" };
+                }
+                if (tc.id) toolCallAccumulator[idx].id = tc.id;
+                if (tc.function?.name) toolCallAccumulator[idx].name = tc.function.name;
+                if (tc.function?.arguments) {
+                  toolCallAccumulator[idx].arguments += tc.function.arguments;
                 }
               }
             }
           }
 
-          // If no function calls, we're done
-          if (functionCalls.length === 0) {
-            break;
-          }
+          // Groq sometimes streams args embedded in the name field (e.g. voice input).
+          // Sanitize: extract clean name and rescue any args that ended up there.
+          const toolCalls = Object.values(toolCallAccumulator).map((tc) => {
+            const braceIdx = tc.name.indexOf("{");
+            if (braceIdx !== -1) {
+              return {
+                id: tc.id,
+                name: tc.name.slice(0, braceIdx).trim(),
+                arguments: tc.arguments || tc.name.slice(braceIdx),
+              };
+            }
+            return tc;
+          });
 
-          // Add the model's response to contents
-          const modelParts: Part[] = [];
-          if (fullText) {
-            modelParts.push({ text: fullText });
-          }
-          for (const fc of functionCalls) {
-            modelParts.push({
-              functionCall: { name: fc.name, args: fc.args },
-            });
-          }
-          contents.push({ role: "model", parts: modelParts });
+          if (toolCalls.length === 0) break;
 
-          // Execute function calls and add responses
-          const functionResponseParts: Part[] = [];
-          for (const fc of functionCalls) {
-            send({ type: "tool_call", name: fc.name, input: fc.args });
+          // Add assistant message with tool calls
+          groqMessages.push({
+            role: "assistant",
+            content: fullText || null,
+            tool_calls: toolCalls.map((tc) => ({
+              id: tc.id,
+              type: "function" as const,
+              function: { name: tc.name, arguments: tc.arguments },
+            })),
+          });
+
+          // Execute tool calls and add responses
+          for (const tc of toolCalls) {
+            let args: Record<string, unknown> = {};
+            try {
+              args = JSON.parse(tc.arguments);
+            } catch {
+              args = {};
+            }
+
+            send({ type: "tool_call", name: tc.name, input: args });
 
             let result;
             try {
-              result = await executeToolCall(fc.name, fc.args);
+              result = await executeToolCall(tc.name, args);
             } catch (err) {
               result = {
                 posts: [],
-                raw: { error: `Tool ${fc.name} failed: ${err instanceof Error ? err.message : "unknown error"}` },
+                raw: {
+                  error: `Tool ${tc.name} failed: ${err instanceof Error ? err.message : "unknown error"}`,
+                },
               };
             }
 
             if (result.posts.length > 0) {
-              send({
-                type: "tool_result",
-                name: fc.name,
-                data: result.posts,
-              });
+              send({ type: "tool_result", name: tc.name, data: result.posts });
             }
 
-            functionResponseParts.push({
-              functionResponse: {
-                name: fc.name,
-                response: { result: result.raw },
-              },
+            groqMessages.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              content: JSON.stringify(result.raw),
             });
           }
-
-          contents.push({ role: "user", parts: functionResponseParts });
         }
 
         send({ type: "done" });
@@ -422,8 +438,7 @@ export async function POST(request: NextRequest) {
         console.error("[chat] Error:", err);
         send({
           type: "error",
-          message:
-            err instanceof Error ? err.message : "Something went wrong",
+          message: err instanceof Error ? err.message : "Something went wrong",
         });
       } finally {
         controller.close();

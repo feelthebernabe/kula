@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Mic,
-  MicOff,
   SendHorizonal,
   Sparkles,
   Trash2,
@@ -28,6 +27,7 @@ import {
   Compass,
   Star,
 } from "lucide-react";
+import { useSpeechMode } from "@/lib/hooks/use-speech-mode";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -242,7 +242,6 @@ export function ProfileBuilderPanel({
   const [messages, setMessages] = useState<PanelMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const [suggestions, setSuggestions] = useState<SkillSuggestions | null>(null);
   const [mode, setMode] = useState<PanelMode>("chat");
   const [saving, setSaving] = useState(false);
@@ -251,9 +250,8 @@ export function ProfileBuilderPanel({
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isNearBottom = useRef(true);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
   const hasInit = useRef(false);
+  const prevMessagesRef = useRef<PanelMessage[]>([]);
 
   // Scroll management
   const handleScroll = useCallback(() => {
@@ -412,48 +410,47 @@ export function ProfileBuilderPanel({
     [messages, isStreaming]
   );
 
-  // ── Voice ──────────────────────────────────────────────────────────────────
+  // ── Speech mode ────────────────────────────────────────────────────────────
 
-  function toggleVoice() {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
+  const speech = useSpeechMode((text) => {
+    setInput("");
+    setSelectedOptions([]);
+    sendMessage(text);
+  });
+
+  // Speak each newly completed assistant message
+  useEffect(() => {
+    const prev = prevMessagesRef.current;
+    prevMessagesRef.current = messages;
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const prevMsg = prev[i];
+      if (
+        msg.role === "assistant" &&
+        !msg.isStreaming &&
+        prevMsg?.role === "assistant" &&
+        prevMsg.isStreaming &&
+        msg.content
+      ) {
+        speech.speak(msg.content);
+      }
     }
-    const SR =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      toast.error("Voice input isn't supported in this browser. Try Chrome or Edge.");
-      return;
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rec: any = new SR();
-    rec.continuous = false;
-    rec.interimResults = true;
-    rec.lang = "en-US";
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    rec.onresult = (e: any) => {
-      const transcript = Array.from(e.results as unknown[])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((r: any) => r[0].transcript as string)
-        .join("");
-      setInput(transcript);
-    };
-    rec.onend = () => { setIsListening(false); recognitionRef.current = null; };
-    rec.onerror = () => { setIsListening(false); recognitionRef.current = null; };
-    rec.start();
-    setIsListening(true);
-    recognitionRef.current = rec;
-  }
+  }, [messages, speech]);
 
   // ── Send ───────────────────────────────────────────────────────────────────
 
   function handleSend() {
+    if (isStreaming) return;
     const text = input.trim();
-    if (!text || isStreaming) return;
+    if (!text && selectedOptions.length === 0) return;
+
+    const parts: string[] = [];
+    if (selectedOptions.length > 0) parts.push(selectedOptions.join(", "));
+    if (text) parts.push(text);
+
     setInput("");
-    sendMessage(text);
+    setSelectedOptions([]);
+    sendMessage(parts.join(" — "));
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -672,12 +669,18 @@ export function ProfileBuilderPanel({
                               );
                             })}
                           </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Or type your own response below
+                          </p>
                           {selectedOptions.length > 0 && (
                             <button
                               onClick={() => {
-                                const text = selectedOptions.join(", ");
+                                const parts: string[] = [selectedOptions.join(", ")];
+                                const typed = input.trim();
+                                if (typed) parts.push(typed);
                                 setSelectedOptions([]);
-                                sendMessage(text);
+                                setInput("");
+                                sendMessage(parts.join(" — "));
                               }}
                               className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
                             >
@@ -703,43 +706,78 @@ export function ProfileBuilderPanel({
               <div ref={bottomRef} />
             </div>
 
+            {/* Speech mode bar */}
+            {messages.some((m) => m.role === "assistant" && !m.isStreaming && m.content) && (
+              speech.enabled ? (
+                <div className={`shrink-0 flex items-center justify-between gap-3 border-t px-4 py-3 transition-colors ${
+                  speech.isListening ? "border-red-200 bg-red-50 dark:bg-red-950/20" : "border-border/40"
+                }`}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                      speech.isListening
+                        ? "animate-pulse bg-red-500 text-white shadow-md shadow-red-200"
+                        : speech.isSpeaking
+                        ? "bg-primary/20 text-primary"
+                        : "bg-primary/10 text-primary"
+                    }`}>
+                      <Mic className="h-4 w-4" />
+                    </div>
+                    <span className="truncate text-sm text-muted-foreground">
+                      {speech.isListening
+                        ? speech.transcript || "Listening…"
+                        : speech.isSpeaking
+                        ? "Speaking…"
+                        : "Voice mode on"}
+                    </span>
+                  </div>
+                  <button onClick={speech.disable} className="shrink-0 text-xs text-muted-foreground hover:text-foreground">
+                    Turn off
+                  </button>
+                </div>
+              ) : (
+                <div className="shrink-0 flex justify-center border-t border-border/40 py-3">
+                  <button
+                    onClick={speech.enable}
+                    className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-5 py-3 transition-all hover:bg-primary/10 active:scale-[0.98]"
+                  >
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                      <Mic className="h-5 w-5" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-foreground">Tap to talk</p>
+                      <p className="text-xs text-muted-foreground">Hands-free voice mode</p>
+                    </div>
+                  </button>
+                </div>
+              )
+            )}
+
             {/* Input bar */}
             <div className="shrink-0 border-t px-4 py-3">
               <div className="flex items-end gap-2">
-                <button
-                  type="button"
-                  onClick={toggleVoice}
-                  disabled={isStreaming}
-                  aria-label={isListening ? "Stop recording" : "Start voice input"}
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all disabled:opacity-40 ${
-                    isListening
-                      ? "animate-pulse bg-red-500 text-white shadow-md shadow-red-200"
-                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
-                  }`}
-                >
-                  {isListening ? (
-                    <MicOff className="h-4 w-4" />
-                  ) : (
-                    <Mic className="h-4 w-4" />
-                  )}
-                </button>
-
                 <textarea
-                  value={input}
-                  onChange={handleInputChange}
+                  value={speech.transcript || input}
+                  onChange={speech.isListening ? undefined : handleInputChange}
                   onKeyDown={handleKeyDown}
                   placeholder={
-                    isListening ? "Listening… speak now" : "Share anything…"
+                    speech.isListening
+                      ? "Listening… speak now"
+                      : speech.enabled
+                      ? "Speak or type…"
+                      : "Share anything…"
                   }
                   disabled={isStreaming}
+                  readOnly={speech.isListening}
                   rows={1}
-                  className="flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                  className={`flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
+                    speech.isListening ? "text-muted-foreground" : ""
+                  }`}
                 />
 
                 <Button
                   size="icon"
                   onClick={handleSend}
-                  disabled={isStreaming || !input.trim()}
+                  disabled={isStreaming || (!input.trim() && selectedOptions.length === 0 && !speech.transcript)}
                   className="h-9 w-9 shrink-0"
                   aria-label="Send message"
                 >

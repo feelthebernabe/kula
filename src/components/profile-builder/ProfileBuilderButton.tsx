@@ -12,8 +12,7 @@ export function ProfileBuilderButton() {
     <>
       <Button
         onClick={() => setIsOpen(true)}
-        variant="secondary"
-        className="fixed bottom-36 right-4 z-40 h-12 rounded-full shadow-lg md:bottom-20 md:right-6 md:h-11 md:w-auto md:rounded-2xl md:px-4"
+        className="fixed bottom-36 right-4 z-40 h-12 rounded-full bg-amber-600 text-white shadow-lg hover:bg-amber-700 md:bottom-20 md:right-6 md:h-11 md:w-auto md:rounded-2xl md:px-4"
       >
         <UserCog className="h-5 w-5 md:mr-2" />
         <span className="sr-only md:not-sr-only md:text-sm md:font-medium">

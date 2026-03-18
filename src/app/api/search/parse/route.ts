@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getGeminiClient } from "@/lib/gemini";
+import { getGroqClient } from "@/lib/groq";
 import { CATEGORIES } from "@/lib/constants/categories";
 import { AI_ENABLED } from "@/lib/flags";
 
@@ -24,14 +24,21 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const client = getGeminiClient();
+    const client = getGroqClient();
     const categoryList = CATEGORIES.map(
       (c) => `${c.value} (${c.description})`
     ).join("\n");
 
-    const result = await client.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `Parse this community search query into structured search parameters.
+    const result = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        {
+          role: "system",
+          content: `Parse community search queries into structured JSON parameters. Always respond with valid JSON only, no markdown fences.`,
+        },
+        {
+          role: "user",
+          content: `Parse this community search query into structured search parameters.
 
 Query: "${query}"
 
@@ -46,9 +53,11 @@ Rules:
 
 Respond with ONLY valid JSON, no markdown fences:
 {"keywords": [...], "suggestedCategory": "..." | null, "suggestedType": "offer" | "request" | null, "searchQuery": "..."}`,
+        },
+      ],
     });
 
-    let text = result.text?.trim() || "";
+    let text = result.choices[0]?.message?.content?.trim() || "";
     // Strip markdown code fences if present
     text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
 
