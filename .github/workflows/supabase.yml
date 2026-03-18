@@ -49,14 +49,19 @@ jobs:
           set_env "NEXT_PUBLIC_SUPABASE_ANON_KEY"  "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
           set_env "SUPABASE_SERVICE_ROLE_KEY"      "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
 
-      - name: Deploy to Vercel
+      - name: Verify env vars in Vercel project
         run: |
-          npx vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }} \
-            --build-env NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
-            --build-env NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
-            --build-env SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
-            --build-env GROQ_API_KEY=${{ secrets.GROQ_API_KEY }} \
-            --build-env HF_API_KEY=${{ secrets.HF_API_KEY }}
+          curl -s "https://api.vercel.com/v10/projects/${{ secrets.VERCEL_PROJECT_ID }}/env?teamId=${{ secrets.VERCEL_ORG_ID }}" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for e in data.get('envs', []):
+    print(e.get('key'), '|', e.get('target'), '| id:', e.get('id'))
+"
+
+      - name: Deploy to Vercel
+        run: npx vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
