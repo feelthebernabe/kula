@@ -33,6 +33,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Sync env vars to Vercel project
+        run: |
+          set_env() {
+            curl -sf -X POST \
+              "https://api.vercel.com/v10/projects/${{ secrets.VERCEL_PROJECT_ID }}/env?upsert=true" \
+              -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"key\":\"$1\",\"value\":\"$2\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}" \
+              > /dev/null && echo "Set $1" || echo "Failed to set $1"
+          }
+          set_env "GROQ_API_KEY"                  "${{ secrets.GROQ_API_KEY }}"
+          set_env "HF_API_KEY"                    "${{ secrets.HF_API_KEY }}"
+          set_env "NEXT_PUBLIC_SUPABASE_URL"       "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}"
+          set_env "NEXT_PUBLIC_SUPABASE_ANON_KEY"  "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
+          set_env "SUPABASE_SERVICE_ROLE_KEY"      "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+
       - name: Deploy to Vercel
         run: npx vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
         env:
