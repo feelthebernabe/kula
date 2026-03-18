@@ -50,7 +50,13 @@ jobs:
           set_env "SUPABASE_SERVICE_ROLE_KEY"      "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
 
       - name: Deploy to Vercel
-        run: npx vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npx vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }} \
+            --build-env NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
+            --build-env NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
+            --build-env SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
+            --build-env GROQ_API_KEY=${{ secrets.GROQ_API_KEY }} \
+            --build-env HF_API_KEY=${{ secrets.HF_API_KEY }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
