@@ -7,65 +7,70 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+  try {
+    let supabaseResponse = NextResponse.next({
+      request,
+    });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) =>
+              request.cookies.set(name, value)
+            );
+            supabaseResponse = NextResponse.next({
+              request,
+            });
+            cookiesToSet.forEach(({ name, value, options }) =>
+              supabaseResponse.cookies.set(name, value, options)
+            );
+          },
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
+      }
+    );
+
+    // Refresh the session - IMPORTANT: always use getUser(), not getSession()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    // Public routes that don't require authentication
+    const publicPaths = ["/", "/login", "/signup", "/auth/callback", "/browse", "/onboarding-chat"];
+    const isPublicPath = publicPaths.some(
+      (path) =>
+        request.nextUrl.pathname === path ||
+        request.nextUrl.pathname.startsWith("/auth/") ||
+        request.nextUrl.pathname.startsWith("/api/") ||
+        request.nextUrl.pathname.startsWith("/invite/") ||
+        request.nextUrl.pathname.startsWith("/browse") ||
+        request.nextUrl.pathname.startsWith("/onboarding-chat")
+    );
+
+    // Redirect unauthenticated users to login
+    if (!user && !isPublicPath) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
     }
-  );
 
-  // Refresh the session - IMPORTANT: always use getUser(), not getSession()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    // Redirect authenticated users away from auth pages
+    if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/feed";
+      return NextResponse.redirect(url);
+    }
 
-  // Public routes that don't require authentication
-  const publicPaths = ["/", "/login", "/signup", "/auth/callback", "/browse", "/onboarding-chat"];
-  const isPublicPath = publicPaths.some(
-    (path) =>
-      request.nextUrl.pathname === path ||
-      request.nextUrl.pathname.startsWith("/auth/") ||
-      request.nextUrl.pathname.startsWith("/api/") ||
-      request.nextUrl.pathname.startsWith("/invite/") ||
-      request.nextUrl.pathname.startsWith("/browse") ||
-      request.nextUrl.pathname.startsWith("/onboarding-chat")
-  );
-
-  // Redirect unauthenticated users to login
-  if (!user && !isPublicPath) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return supabaseResponse;
+  } catch {
+    // If middleware throws for any reason, pass through rather than 500
+    return NextResponse.next({ request });
   }
-
-  // Redirect authenticated users away from auth pages
-  if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/feed";
-    return NextResponse.redirect(url);
-  }
-
-  return supabaseResponse;
 }
 
 export const config = {
