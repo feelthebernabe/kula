@@ -363,27 +363,54 @@ export async function POST(request: NextRequest) {
             { id: string; name: string; arguments: string }
           > = {};
 
-          for await (const chunk of groqStream) {
-            const delta = chunk.choices[0]?.delta;
+          try {
+            for await (const chunk of groqStream) {
+              const delta = chunk.choices[0]?.delta;
 
-            if (delta?.content) {
-              fullText += delta.content;
-              send({ type: "text", content: delta.content });
-            }
+              if (delta?.content) {
+                fullText += delta.content;
+                send({ type: "text", content: delta.content });
+              }
 
-            if (delta?.tool_calls) {
-              for (const tc of delta.tool_calls) {
-                const idx = tc.index;
-                if (!toolCallAccumulator[idx]) {
-                  toolCallAccumulator[idx] = { id: "", name: "", arguments: "" };
-                }
-                if (tc.id) toolCallAccumulator[idx].id = tc.id;
-                if (tc.function?.name) toolCallAccumulator[idx].name = tc.function.name;
-                if (tc.function?.arguments) {
-                  toolCallAccumulator[idx].arguments += tc.function.arguments;
+              if (delta?.tool_calls) {
+                for (const tc of delta.tool_calls) {
+                  const idx = tc.index;
+                  if (!toolCallAccumulator[idx]) {
+                    toolCallAccumulator[idx] = { id: "", name: "", arguments: "" };
+                  }
+                  if (tc.id) toolCallAccumulator[idx].id = tc.id;
+                  if (tc.function?.name) toolCallAccumulator[idx].name = tc.function.name;
+                  if (tc.function?.arguments) {
+                    toolCallAccumulator[idx].arguments += tc.function.arguments;
+                  }
                 }
               }
             }
+          } catch (streamErr) {
+            const streamMsg = streamErr instanceof Error ? streamErr.message : String(streamErr);
+            if (
+              streamMsg.includes("tool call validation failed") ||
+              streamMsg.includes("failed_generation") ||
+              streamMsg.includes("Failed to call a function")
+            ) {
+              // Groq rejected the tool call mid-stream (often voice input garbling the name).
+              // Retry without tools so the user still gets a response.
+              const fallbackStream = await client.chat.completions.create({
+                model: "llama-3.3-70b-versatile",
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                messages: groqMessages as any,
+                stream: true,
+              });
+              for await (const chunk of fallbackStream) {
+                const content = chunk.choices[0]?.delta?.content;
+                if (content) {
+                  fullText += content;
+                  send({ type: "text", content });
+                }
+              }
+              break;
+            }
+            throw streamErr;
           }
 
           // Groq sometimes streams args embedded in the name field (e.g. voice input).

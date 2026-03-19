@@ -5,6 +5,18 @@ import { useState, useRef, useCallback, useEffect } from "react";
 // Fire once per page session as soon as any speech-capable component mounts.
 // Wakes the Kokoro model on HF so it's ready before the user enables voice mode.
 let ttsWarmupFired = false;
+let ttsWarmupDone = false;
+const ttsWarmupListeners: (() => void)[] = [];
+
+function onWarmupDone(fn: () => void): () => void {
+  if (ttsWarmupDone) { fn(); return () => {}; }
+  ttsWarmupListeners.push(fn);
+  return () => {
+    const idx = ttsWarmupListeners.indexOf(fn);
+    if (idx !== -1) ttsWarmupListeners.splice(idx, 1);
+  };
+}
+
 function warmupTTS() {
   if (ttsWarmupFired || typeof window === "undefined") return;
   ttsWarmupFired = true;
@@ -12,7 +24,12 @@ function warmupTTS() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ warmup: true }),
-  }).catch(() => {});
+  })
+    .catch(() => {})
+    .finally(() => {
+      ttsWarmupDone = true;
+      ttsWarmupListeners.splice(0).forEach((fn) => fn());
+    });
 }
 export { warmupTTS };
 
@@ -45,6 +62,7 @@ function truncateForSpeech(text: string, maxChars = 400): string {
 
 export function useSpeechMode(onSend: (text: string) => void) {
   const [enabled, setEnabled] = useState(false);
+  const [isWarmingUp, setIsWarmingUp] = useState(!ttsWarmupDone);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -173,7 +191,7 @@ export function useSpeechMode(onSend: (text: string) => void) {
 
     // Try Kokoro via HF first; fall back to native on any error/timeout
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // 8s max
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20s — allows server to wait out a cold HF model start
 
     fetch("/api/tts", {
       method: "POST",
@@ -207,7 +225,15 @@ export function useSpeechMode(onSend: (text: string) => void) {
     setEnabled(true);
     enabledRef.current = true;
     isSpeakingRef.current = false;
-    setTimeout(() => startListeningRef.current(), 150);
+    // If the TTS model is still warming up, defer mic start until it's ready
+    if (!ttsWarmupDone) {
+      onWarmupDone(() => {
+        setIsWarmingUp(false);
+        if (enabledRef.current) setTimeout(() => startListeningRef.current(), 150);
+      });
+    } else {
+      setTimeout(() => startListeningRef.current(), 150);
+    }
   }, []);
 
   const disable = useCallback(() => {
@@ -232,9 +258,10 @@ export function useSpeechMode(onSend: (text: string) => void) {
     speakRef.current(text);
   }, []);
 
-  // Pre-warm Kokoro on first mount
+  // Pre-warm Kokoro on first mount; track when warmup resolves
   useEffect(() => {
     warmupTTS();
+    return onWarmupDone(() => setIsWarmingUp(false));
   }, []);
 
   // Cleanup on unmount
@@ -249,5 +276,5 @@ export function useSpeechMode(onSend: (text: string) => void) {
     };
   }, []);
 
-  return { enabled, isListening, isSpeaking, transcript, enable, disable, speak };
+  return { enabled, isWarmingUp, isListening, isSpeaking, transcript, enable, disable, speak };
 }

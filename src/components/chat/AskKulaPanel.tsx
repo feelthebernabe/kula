@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Mic, SendHorizonal, Sparkles, Trash2 } from "lucide-react";
+import { Loader2, Mic, SendHorizonal, Sparkles, Trash2 } from "lucide-react";
 import { ChatMessages } from "./ChatMessages";
 import { ChatInput } from "./ChatInput";
 import { useChat } from "@/lib/hooks/use-chat";
@@ -133,16 +133,22 @@ export function AskKulaPanel({
             }`}>
               <div className="flex items-center gap-3 min-w-0">
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                  speech.isListening
+                  speech.isWarmingUp
+                    ? "bg-primary/10 text-primary"
+                    : speech.isListening
                     ? "animate-pulse bg-red-500 text-white shadow-md shadow-red-200"
                     : speech.isSpeaking
                     ? "bg-primary/20 text-primary"
                     : "bg-primary/10 text-primary"
                 }`}>
-                  <Mic className="h-4 w-4" />
+                  {speech.isWarmingUp
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Mic className="h-4 w-4" />}
                 </div>
                 <span className="truncate text-sm text-muted-foreground">
-                  {speech.isListening
+                  {speech.isWarmingUp
+                    ? "Warming up voice…"
+                    : speech.isListening
                     ? speech.transcript || "Listening…"
                     : speech.isSpeaking
                     ? "Speaking…"
@@ -160,11 +166,15 @@ export function AskKulaPanel({
                 className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-5 py-3 transition-all hover:bg-primary/10 active:scale-[0.98]"
               >
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                  <Mic className="h-5 w-5" />
+                  {speech.isWarmingUp
+                    ? <Loader2 className="h-5 w-5 animate-spin" />
+                    : <Mic className="h-5 w-5" />}
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-semibold text-foreground">Tap to talk</p>
-                  <p className="text-xs text-muted-foreground">Hands-free voice mode</p>
+                  <p className="text-xs text-muted-foreground">
+                    {speech.isWarmingUp ? "Warming up voice…" : "Hands-free voice mode"}
+                  </p>
                 </div>
               </button>
             </div>

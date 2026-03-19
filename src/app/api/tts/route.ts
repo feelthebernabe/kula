@@ -45,17 +45,31 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const res = await fetch(
-    "https://api-inference.huggingface.co/models/hexgrad/Kokoro-82M",
-    {
+  const hfFetch = () =>
+    fetch("https://api-inference.huggingface.co/models/hexgrad/Kokoro-82M", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ inputs: text }),
-    }
-  );
+    });
+
+  let res = await hfFetch();
+
+  // HF returns 503 with {"estimated_time": N} while the model is loading.
+  // Retry once after a short wait so a cold start doesn't always fall back to native TTS.
+  if (res.status === 503) {
+    let waitMs = 5000;
+    try {
+      const errBody = await res.clone().json();
+      if (typeof errBody?.estimated_time === "number") {
+        waitMs = Math.min(errBody.estimated_time * 1000, 12000);
+      }
+    } catch { /* ignore parse errors */ }
+    await new Promise((r) => setTimeout(r, waitMs));
+    res = await hfFetch();
+  }
 
   if (!res.ok) {
     const err = await res.text().catch(() => "unknown");
