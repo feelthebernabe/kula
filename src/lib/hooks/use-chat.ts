@@ -94,6 +94,9 @@ export function useChat() {
             if (parsed.type === "text") {
               accumulatedText += parsed.content;
               updateAssistant();
+            } else if (parsed.type === "replace_text") {
+              accumulatedText = parsed.content as string;
+              updateAssistant();
             } else if (parsed.type === "tool_result" && parsed.data) {
               accumulatedPosts.push(...parsed.data);
               updateAssistant();

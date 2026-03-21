@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getGroqClient } from "@/lib/groq";
 import { AI_ENABLED } from "@/lib/flags";
+import { collectFallbackStream, parseFunctionTags } from "@/lib/groq-fallback";
 
 // In-memory rate limit: 20 req / 5 min per user
 const rateLimitMap = new Map<string, number[]>();
@@ -38,7 +39,7 @@ Ask ONE focused question at a time. Use the prompt chips to surface specific opt
 
 Do NOT echo or validate: skip phrases like "that's great", "love that", "nice!", "how interesting" -- just pivot straight to the next question. Don't restate what they said back to them. Don't add filler.
 
-After 3-4 exchanges you should have enough to generate suggestions. Don't drag it out.
+HARD LIMIT: Maximum 3 questions. After your 3rd question you MUST call generate_skill_suggestions — do not ask another question.
 
 ---
 
@@ -61,7 +62,7 @@ Do NOT call suggest_prompts in the same turn as generate_skill_suggestions.
 ---
 
 WHEN TO GENERATE:
-After 3-4 exchanges with enough material, call generate_skill_suggestions. Don't wait for a perfect picture -- generate early and let users refine from there.
+After 3 user replies, call generate_skill_suggestions immediately. Don't wait for a perfect picture — generate early and let users refine. If you have anything to work with, generate now.
 
 Structure into three tiers:
 1. confirmed: things they clearly do and enjoy
@@ -251,6 +252,10 @@ export async function POST(request: NextRequest) {
           { role: "system", content: SYSTEM_INSTRUCTION },
         ];
 
+        const userExchangeCount = (messages as { role: string }[]).filter(
+          (m) => m.role === "user"
+        ).length;
+
         if (messages.length === 0) {
           groqMessages.push({
             role: "user",
@@ -264,7 +269,19 @@ export async function POST(request: NextRequest) {
               content: m.content,
             });
           }
+
+          // After 3 user replies, inject a hard instruction to generate now
+          if (userExchangeCount >= 3) {
+            groqMessages.push({
+              role: "user",
+              content:
+                "[system: You have asked enough questions. You MUST call generate_skill_suggestions right now. Do not ask another question.]",
+            });
+          }
         }
+
+        // Force generate_skill_suggestions after 3+ exchanges
+        const forceGenerate = userExchangeCount >= 3;
 
         let loopCount = 0;
 
@@ -278,7 +295,9 @@ export async function POST(request: NextRequest) {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               messages: groqMessages as any,
               tools,
-              tool_choice: "auto",
+              tool_choice: forceGenerate
+                ? { type: "function" as const, function: { name: "generate_skill_suggestions" } }
+                : "auto",
               parallel_tool_calls: false,
               stream: true,
             });
@@ -304,27 +323,63 @@ export async function POST(request: NextRequest) {
             { id: string; name: string; arguments: string }
           > = {};
 
-          for await (const chunk of groqStream) {
-            const delta = chunk.choices[0]?.delta;
+          try {
+            for await (const chunk of groqStream) {
+              const delta = chunk.choices[0]?.delta;
 
-            if (delta?.content) {
-              fullText += delta.content;
-              send({ type: "text", content: delta.content });
-            }
-
-            if (delta?.tool_calls) {
-              for (const tc of delta.tool_calls) {
-                const idx = tc.index;
-                if (!toolCallAccumulator[idx]) {
-                  toolCallAccumulator[idx] = { id: "", name: "", arguments: "" };
+              if (delta?.content) {
+                if (
+                  delta.content.includes("failed_generation") ||
+                  delta.content.includes("Failed to call a function")
+                ) {
+                  throw new Error("failed_generation");
                 }
-                if (tc.id) toolCallAccumulator[idx].id = tc.id;
-                if (tc.function?.name) toolCallAccumulator[idx].name = tc.function.name;
-                if (tc.function?.arguments) {
-                  toolCallAccumulator[idx].arguments += tc.function.arguments;
+                fullText += delta.content;
+                send({ type: "text", content: delta.content });
+              }
+
+              if (delta?.tool_calls) {
+                for (const tc of delta.tool_calls) {
+                  const idx = tc.index;
+                  if (!toolCallAccumulator[idx]) {
+                    toolCallAccumulator[idx] = { id: "", name: "", arguments: "" };
+                  }
+                  if (tc.id) toolCallAccumulator[idx].id = tc.id;
+                  if (tc.function?.name) toolCallAccumulator[idx].name = tc.function.name;
+                  if (tc.function?.arguments) {
+                    toolCallAccumulator[idx].arguments += tc.function.arguments;
+                  }
                 }
               }
             }
+          } catch (streamErr) {
+            const streamMsg = streamErr instanceof Error ? streamErr.message : String(streamErr);
+            if (
+              streamMsg.includes("tool call validation failed") ||
+              streamMsg.includes("failed_generation") ||
+              streamMsg.includes("Failed to call a function")
+            ) {
+              const fallbackStream = await client.chat.completions.create({
+                model: "llama-3.3-70b-versatile",
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                messages: groqMessages as any,
+                stream: true,
+              });
+              const { text: fbText, toolCalls: fbCalls } = await collectFallbackStream(fallbackStream);
+              // Only replace if fallback produced text — otherwise keep whatever was already streamed.
+              // An empty replace_text would wipe partial content and leave the bubble showing "Thinking...".
+              if (fbText) {
+                fullText = fbText;
+                send({ type: "replace_text", content: fbText });
+              }
+              for (const { name, args } of fbCalls) {
+                if (name === "suggest_prompts") {
+                  send({ type: "prompt_options", options: (args.options as string[]) ?? [] });
+                }
+              }
+              break;
+            }
+            throw streamErr;
           }
 
           // Groq sometimes streams args embedded in the name field (e.g. voice input).
@@ -340,6 +395,24 @@ export async function POST(request: NextRequest) {
             }
             return tc;
           });
+
+          // Groq sometimes emits tool calls as inline text instead of proper deltas.
+          // Strip <function=name>args</function> tags, process any extracted calls.
+          if (toolCalls.length === 0 && fullText.includes("<function=")) {
+            const { text: cleanText, toolCalls: inlineCalls } = parseFunctionTags(fullText);
+            if (cleanText !== fullText) {
+              send({ type: "replace_text", content: cleanText });
+              fullText = cleanText;
+            }
+            for (const { name, args } of inlineCalls) {
+              if (name === "suggest_prompts") {
+                send({ type: "prompt_options", options: (args.options as string[]) ?? [] });
+              } else if (name === "generate_skill_suggestions") {
+                send({ type: "suggestions_ready", data: args });
+              }
+            }
+            if (inlineCalls.some((c) => c.name === "suggest_prompts")) break;
+          }
 
           if (toolCalls.length === 0) break;
 

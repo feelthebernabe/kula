@@ -22,6 +22,7 @@ export interface ChatPost {
 
 export type SSEEvent =
   | { type: "text"; content: string }
+  | { type: "replace_text"; content: string }
   | { type: "tool_call"; name: string; input: Record<string, unknown> }
   | { type: "tool_result"; name: string; data: ChatPost[] }
   | { type: "done" }

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { getGroqClient } from "@/lib/groq";
 
 // In-memory rate limit: 60 requests per 5 min per IP
 const rateLimitMap = new Map<string, number[]>();
@@ -26,18 +27,15 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const apiKey = process.env.HF_API_KEY;
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: "TTS not configured" }), {
-      status: 503,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
   const body = await request.json();
   const isWarmup = body?.warmup === true;
-  const text = isWarmup ? "hello" : (typeof body?.text === "string" ? body.text.slice(0, 4096) : null);
 
+  // Groq TTS has no cold-start — warmup can return immediately
+  if (isWarmup) {
+    return new Response(null, { status: 204 });
+  }
+
+  const text = typeof body?.text === "string" ? body.text.slice(0, 4096) : null;
   if (!text?.trim()) {
     return new Response(JSON.stringify({ error: "Missing text" }), {
       status: 400,
@@ -45,52 +43,35 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const hfFetch = () =>
-    fetch("https://api-inference.huggingface.co/models/hexgrad/Kokoro-82M", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ inputs: text }),
+  try {
+    const groq = getGroqClient();
+    // canopylabs/orpheus-v1-english: high-quality neural TTS on Groq
+    // Requires accepting terms once at: https://console.groq.com/playground?model=canopylabs%2Forpheus-v1-english
+    const response = await groq.audio.speech.create({
+      model: "canopylabs/orpheus-v1-english",
+      input: text,
+      voice: "hannah", // clear, natural-sounding female voice
+      response_format: "wav",
     });
 
-  let res = await hfFetch();
+    const audioBuffer = await response.arrayBuffer();
 
-  // HF returns 503 with {"estimated_time": N} while the model is loading.
-  // Retry once after a short wait so a cold start doesn't always fall back to native TTS.
-  if (res.status === 503) {
-    let waitMs = 5000;
-    try {
-      const errBody = await res.clone().json();
-      if (typeof errBody?.estimated_time === "number") {
-        waitMs = Math.min(errBody.estimated_time * 1000, 12000);
-      }
-    } catch { /* ignore parse errors */ }
-    await new Promise((r) => setTimeout(r, waitMs));
-    res = await hfFetch();
-  }
-
-  if (!res.ok) {
-    const err = await res.text().catch(() => "unknown");
-    console.error("[tts] HF error:", res.status, err);
-    return new Response(JSON.stringify({ error: "TTS service error" }), {
+    return new Response(audioBuffer, {
+      headers: {
+        "Content-Type": "audio/wav",
+        "Cache-Control": "no-cache",
+      },
+    });
+  } catch (err: unknown) {
+    const status = (err as { status?: number })?.status;
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[tts] Groq TTS error (status=${status ?? "?"}):`, message);
+    if (message.includes("terms acceptance")) {
+      console.error("[tts] Accept Orpheus terms at: https://console.groq.com/playground?model=canopylabs%2Forpheus-v1-english");
+    }
+    return new Response(JSON.stringify({ error: "TTS failed" }), {
       status: 502,
       headers: { "Content-Type": "application/json" },
     });
   }
-
-  const contentType = res.headers.get("content-type") || "audio/flac";
-
-  // For warmup requests the client doesn't need the audio bytes
-  if (isWarmup) {
-    return new Response(null, { status: 204 });
-  }
-
-  return new Response(res.body, {
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control": "no-cache",
-    },
-  });
 }

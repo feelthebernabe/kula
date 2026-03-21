@@ -113,7 +113,7 @@ function ReviewScreen({
   const selectedSkills = allSkills.filter((s) => selected.has(s.label));
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-1 flex-col min-h-0">
       {/* Header */}
       <div className="shrink-0 border-b px-4 py-3">
         <button
@@ -135,7 +135,7 @@ function ReviewScreen({
       </div>
 
       {/* Skill chips by section */}
-      <ScrollArea className="flex-1 px-4 py-4">
+      <ScrollArea className="flex-1 min-h-0 px-4 py-4">
         <div className="space-y-5 pb-4">
           {SECTION_CONFIG.map((section) => {
             const items =
@@ -346,6 +346,14 @@ export function ProfileBuilderPanel({
                 prev.map((m) =>
                   m.id === assistantId && m.role === "assistant"
                     ? { ...m, content: m.content + (event.content as string) }
+                    : m
+                )
+              );
+            } else if (event.type === "replace_text") {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId && m.role === "assistant"
+                    ? { ...m, content: event.content as string }
                     : m
                 )
               );
@@ -630,14 +638,14 @@ export function ProfileBuilderPanel({
                       <div className="rounded-2xl rounded-bl-md bg-muted px-3 py-2 text-sm text-foreground">
                         {msg.content ? (
                           <span className="whitespace-pre-wrap">{msg.content}</span>
-                        ) : (
+                        ) : !msg.options?.length ? (
                           <span className="inline-flex items-center gap-1 text-muted-foreground">
                             <span className="animate-pulse">Thinking</span>
                             <span className="animate-bounce [animation-delay:0.1s]">.</span>
                             <span className="animate-bounce [animation-delay:0.2s]">.</span>
                             <span className="animate-bounce [animation-delay:0.3s]">.</span>
                           </span>
-                        )}
+                        ) : null}
                         {msg.isStreaming && msg.content && (
                           <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-foreground" />
                         )}

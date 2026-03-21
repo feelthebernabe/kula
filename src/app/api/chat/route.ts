@@ -5,6 +5,7 @@ import { getGroqClient } from "@/lib/groq";
 import { CATEGORIES } from "@/lib/constants/categories";
 import { AI_ENABLED } from "@/lib/flags";
 import type { ChatPost } from "@/types/chat";
+import { collectFallbackStream, parseFunctionTags } from "@/lib/groq-fallback";
 
 // Simple in-memory rate limiter: max 10 requests per user per minute
 const rateLimitMap = new Map<string, number[]>();
@@ -368,6 +369,14 @@ export async function POST(request: NextRequest) {
               const delta = chunk.choices[0]?.delta;
 
               if (delta?.content) {
+                // Groq sometimes emits the failed_generation error as streamed text.
+                // Treat it as a thrown error so the retry-without-tools path handles it.
+                if (
+                  delta.content.includes("failed_generation") ||
+                  delta.content.includes("Failed to call a function")
+                ) {
+                  throw new Error("failed_generation");
+                }
                 fullText += delta.content;
                 send({ type: "text", content: delta.content });
               }
@@ -401,12 +410,10 @@ export async function POST(request: NextRequest) {
                 messages: groqMessages as any,
                 stream: true,
               });
-              for await (const chunk of fallbackStream) {
-                const content = chunk.choices[0]?.delta?.content;
-                if (content) {
-                  fullText += content;
-                  send({ type: "text", content });
-                }
+              const { text: fbText } = await collectFallbackStream(fallbackStream);
+              if (fbText) {
+                fullText = fbText;
+                send({ type: "replace_text", content: fbText });
               }
               break;
             }
@@ -426,6 +433,12 @@ export async function POST(request: NextRequest) {
             }
             return tc;
           });
+
+          // Groq sometimes emits tool calls as inline text instead of proper deltas.
+          if (toolCalls.length === 0 && fullText.includes("<function=")) {
+            const { text: cleanText } = parseFunctionTags(fullText);
+            if (cleanText !== fullText) send({ type: "replace_text", content: cleanText });
+          }
 
           if (toolCalls.length === 0) break;
 

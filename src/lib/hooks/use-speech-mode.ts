@@ -177,21 +177,60 @@ export function useSpeechMode(onSend: (text: string) => void) {
     };
 
     // Fallback: native browser TTS (always available, zero latency)
-    const speakNative = () => {
+    const speakNative = (reason?: string) => {
+      console.warn("[tts] falling back to native voice:", reason ?? "unknown");
       if (typeof window === "undefined") { onDone(); return; }
       const synth = window.speechSynthesis;
       if (!synth) { onDone(); return; }
       synth.cancel();
       const utt = new SpeechSynthesisUtterance(clean);
-      utt.rate = 1.05;
-      utt.onend = onDone;
-      utt.onerror = onDone;
-      synth.speak(utt);
+      utt.rate = 1.0;
+
+      const preferred = [
+        "Ava (Premium)", "Zoe (Premium)", "Nicky (Premium)", "Evan (Premium)", // macOS neural
+        "Ava (Enhanced)", "Zoe (Enhanced)", "Nicky (Enhanced)", "Evan (Enhanced)", // macOS enhanced
+        "Google US English",                                                     // Chrome
+        "Microsoft Aria Online (Natural) - English (United States)",             // Edge
+      ];
+
+      const pickAndSpeak = (voices: SpeechSynthesisVoice[]) => {
+        // Prefer high-quality neural/enhanced English voices over default robotic one
+        const picked =
+          preferred.reduce<SpeechSynthesisVoice | null>(
+            (found, name) => found ?? (voices.find((v) => v.name === name) ?? null),
+            null
+          ) ??
+          // Last resort: any English voice that isn't the default
+          (voices.find((v) => v.lang.startsWith("en") && !v.default) ?? null);
+        if (picked) {
+          console.log("[tts] using native voice:", picked.name);
+          utt.voice = picked;
+        } else {
+          console.warn("[tts] no preferred voice found, using system default. Available voices:", voices.map(v => v.name).join(", "));
+        }
+        utt.onend = onDone;
+        utt.onerror = onDone;
+        synth.speak(utt);
+      };
+
+      // Voices load async in many browsers — wait for them if not ready
+      const voices = synth.getVoices();
+      if (voices.length > 0) {
+        pickAndSpeak(voices);
+      } else {
+        const handler = () => pickAndSpeak(synth.getVoices());
+        synth.addEventListener("voiceschanged", handler, { once: true });
+        // Safety timeout: speak with whatever we have after 500ms
+        setTimeout(() => {
+          synth.removeEventListener("voiceschanged", handler);
+          pickAndSpeak(synth.getVoices());
+        }, 500);
+      }
     };
 
     // Try Kokoro via HF first; fall back to native on any error/timeout
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000); // 20s — allows server to wait out a cold HF model start
+    const timeout = setTimeout(() => controller.abort(), 10000); // 10s — Groq TTS responds in ~1s
 
     fetch("/api/tts", {
       method: "POST",
@@ -201,21 +240,23 @@ export function useSpeechMode(onSend: (text: string) => void) {
     })
       .then((res) => {
         clearTimeout(timeout);
-        if (!res.ok) throw new Error("TTS failed");
+        if (!res.ok) throw new Error(`TTS http ${res.status}`);
+        console.log("[tts] Kokoro response ok, content-type:", res.headers.get("content-type"));
         return res.blob();
       })
       .then((blob) => {
         if (!enabledRef.current) return;
+        console.log("[tts] blob size:", blob.size, "type:", blob.type);
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         audioRef.current = audio;
         audio.onended = () => { URL.revokeObjectURL(url); onDone(); };
-        audio.onerror = () => { URL.revokeObjectURL(url); speakNative(); };
-        audio.play().catch(() => { URL.revokeObjectURL(url); speakNative(); });
+        audio.onerror = (e) => { URL.revokeObjectURL(url); speakNative(`audio error: ${JSON.stringify(e)}`); };
+        audio.play().catch((e) => { URL.revokeObjectURL(url); speakNative(`play() blocked: ${e}`); });
       })
-      .catch(() => {
+      .catch((e: Error) => {
         clearTimeout(timeout);
-        if (enabledRef.current) speakNative();
+        if (enabledRef.current) speakNative(e.name === "AbortError" ? "20s timeout" : e.message);
         else onDone();
       });
   };

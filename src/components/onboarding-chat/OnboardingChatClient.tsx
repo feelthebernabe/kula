@@ -420,6 +420,14 @@ export function OnboardingChatClient() {
                     : m
                 )
               );
+            } else if (event.type === "replace_text") {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId && m.role === "assistant"
+                    ? { ...m, content: event.content as string }
+                    : m
+                )
+              );
             } else if (event.type === "tool_result") {
               const posts = event.data as ChatPost[];
               setMessages((prev) =>
